@@ -54,6 +54,14 @@ export function Sidebar() {
           Review &amp; Continuity
         </Link>
         <Link
+          href={`${base}/voice`}
+          className={`mb-1 block rounded-md px-3 py-2 font-medium ${
+            isActive('voice') ? 'bg-accent-soft text-accent-strong' : 'text-ink hover:bg-black/5'
+          }`}
+        >
+          Voice Consistency
+        </Link>
+        <Link
           href={`${base}/plan`}
           className={`mb-1 block rounded-md px-3 py-2 font-medium ${
             isActive('plan') ? 'bg-accent-soft text-accent-strong' : 'text-ink hover:bg-black/5'

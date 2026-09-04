@@ -77,7 +77,8 @@ export const DEEP_REVIEW_SYSTEM =
   `"progression_gap" = a before-state and an after-state are both shown but you did not locate the connecting beat between them; ` +
   `"absence_based" = the concern depends on something you did NOT find; ` +
   `"open_question" = ambiguous rather than contradictory. ` +
-  `For progression_gap / absence_based you MUST use level_hint "worth_checking" and calibrated, non-absolute wording — say "I didn't find the transition in the material reviewed" / "this may be established elsewhere", NEVER "this is missing" / "no scene exists" / "the author forgot" / "never shown". Ask whether it is shown elsewhere or another beat would help, rather than asserting it is absent.`;
+  `For progression_gap / absence_based you MUST use level_hint "worth_checking" and calibrated, non-absolute wording — say "I didn't find the transition in the material reviewed" / "this may be established elsewhere", NEVER "this is missing" / "no scene exists" / "the author forgot" / "never shown". Ask whether it is shown elsewhere or another beat would help, rather than asserting it is absent. ` +
+  `TIME PASSES between chapters — chapters are chronological. Evidence from a LATER chapter reflects a LATER point in the story. A character talking more or less often, feeling or believing something different, or a relationship being closer or more distant LATER than EARLIER is normal change over time, NOT a contradiction — do NOT mark it positive_conflict or likely_conflict. Only mark positive_conflict when the two states are true at the SAME moment, or the fact cannot change (an age at a fixed date, parentage, where someone was born, an event that already happened). For example, "no contact for two weeks" early and "texting again" many chapters later is progression, not a conflict; someone "baptized before" (backstory) does not conflict with an earlier emotional crisis.`;
 
 export const DEEP_REVIEW_SCHEMA: Record<string, unknown> = {
   type: 'object', additionalProperties: false,
@@ -201,6 +202,13 @@ export function sanitizeHostCandidates(raw: unknown): { candidates: RawAiCandida
 // keep absence-dependent findings honest: cap their level, calibrate wording,
 // and try a broader search for the missing bridge before surfacing anything.
 
+// Chapters are chronological. When a finding's two sides sit this many chapters
+// apart, they describe different POINTS IN TIME — a change of a mutable state
+// (how often people talk, someone's feelings/faith, a relationship's closeness)
+// across that span is normal progression, not a same-moment contradiction.
+const TEMPORAL_GAP = 3;
+const MUTABLE_STATE_TYPES: ReadonlySet<ReviewFindingType> = new Set(['relationship', 'character', 'knowledge', 'continuity']);
+
 function claimBasisOf(cand: RawAiCandidate): ClaimBasis | 'unknown' {
   return typeof cand.claim_basis === 'string' && (CLAIM_BASES as readonly string[]).includes(cand.claim_basis) ? (cand.claim_basis as ClaimBasis) : 'unknown';
 }
@@ -271,16 +279,25 @@ export function verifyAiCandidatesDetailed(input: DeepInput, sections: Sec[], ra
     // WHOLE active manuscript for the bridge. If found, the concern is answered.
     if (isAbsence && bridgeLocated(allSections, cand, type)) { drop(cand.title, 'bridge_located'); continue; }
 
+    // Temporal-progression guard: if the two sides are quoted from chapters far
+    // apart, they describe different points in the timeline. For a mutable
+    // state (relationship/character/knowledge/continuity) that is a change over
+    // time, NOT a contradiction — so it can never be Likely Conflict.
+    const chNums = resolved.map((r) => r.chapter_number).filter((n): n is number => typeof n === 'number');
+    const chapterSpan = chNums.length >= 2 ? Math.max(...chNums) - Math.min(...chNums) : 0;
+    const temporalProgression = chapterSpan >= TEMPORAL_GAP && MUTABLE_STATE_TYPES.has(type);
+
     // Confidence CEILING (server is the authority): only an affirmative
-    // positive_conflict with both sides quoted may be Likely Conflict. An
-    // absence/progression claim can never exceed Worth Checking, even if the
-    // model asked for Likely Conflict; unknown/unclassified basis is treated
-    // conservatively (never Likely Conflict).
-    const level: ReviewFindingLevel =
+    // positive_conflict with both sides quoted, at the SAME point in time, may
+    // be Likely Conflict. Absence/progression claims and cross-timeline state
+    // changes can never exceed Worth Checking, even if the model asked for
+    // Likely Conflict; unknown/unclassified basis is treated conservatively.
+    let level: ReviewFindingLevel =
       basis === 'positive_conflict' && resolved.length >= 2 && cand.level_hint === 'likely_conflict' ? 'likely_conflict'
         : isAbsence ? 'worth_checking'
           : type === 'setup_payoff' ? 'open_question'
             : 'worth_checking';
+    if (level === 'likely_conflict' && temporalProgression) level = 'worth_checking';
 
     const entities = (cand.involved_entities ?? []).map((e) => ({ kind: e.kind, name: e.name }));
     const subjectKey = `${type}:${(entities[0]?.name ?? cand.title).toLowerCase().slice(0, 40)}`;
@@ -289,10 +306,18 @@ export function verifyAiCandidatesDetailed(input: DeepInput, sections: Sec[], ra
     if (seenFp.has(fp)) { drop(cand.title, 'duplicate_candidate'); continue; }
     seenFp.add(fp);
 
-    // Wording calibration + confidence cap for absence/progression findings.
+    // Wording calibration + confidence cap for absence/progression findings and
+    // for cross-timeline state changes (reframed as a "change over time" question).
     let title = cand.title, explanation = cand.explanation, question = cand.question_for_writer ?? null;
     let confidence = typeof cand.confidence === 'number' ? Math.max(0, Math.min(1, cand.confidence)) : 0.5;
-    if (isAbsence) { const c = calibrateAbsenceWording(title, explanation); title = c.title; explanation = c.explanation; question = c.question; confidence = Math.min(confidence, 0.6); }
+    if (isAbsence || temporalProgression) {
+      const c = calibrateAbsenceWording(title, explanation);
+      title = c.title; explanation = c.explanation;
+      question = temporalProgression
+        ? 'These read as different states at different points in the story — is that an intended change over time, or should a beat show the shift?'
+        : c.question;
+      confidence = Math.min(confidence, 0.6);
+    }
 
     out.push({
       finding_type: type, level,

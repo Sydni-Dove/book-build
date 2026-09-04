@@ -14,6 +14,7 @@ import { SectionVersionUpload } from '@/components/versions/SectionVersionUpload
 import { SectionVersionHistory } from '@/components/versions/SectionVersionHistory';
 import { ChapterVersionUpload } from '@/components/versions/ChapterVersionUpload';
 import { ChapterVersionHistory } from '@/components/versions/ChapterVersionHistory';
+import { ExportMenu } from '@/components/export/ExportMenu';
 import { Button, Input } from '@/components/ui';
 import type { Chapter, WritingSection } from '@/lib/types/database';
 
@@ -171,6 +172,14 @@ export default function ChapterWorkspacePage() {
                 chapterId={chapter.id}
                 chapterNumber={chapter.chapter_number}
                 onRestored={() => { load(); setRefreshKey((k) => k + 1); }}
+              />
+              <ExportMenu
+                bookId={book.id}
+                bookTitle={book.title}
+                chapterId={chapter.id}
+                chapterNumber={chapter.chapter_number}
+                chapterTitle={chapter.title}
+                sectionId={currentSection?.id}
               />
               <Link
                 href={`/books/${book.id}/plan/chapter/${chapter.id}`}

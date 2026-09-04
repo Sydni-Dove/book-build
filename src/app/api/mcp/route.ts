@@ -34,6 +34,7 @@ import {
   listReviewFindings,
   setReviewFindingStatus,
   proposeCanonFromFinding,
+  getVoiceReport,
   type ToolResult
 } from '@/lib/mcp/tools';
 
@@ -396,6 +397,18 @@ const baseHandler = createMcpHandler(
       },
       async (args: { book_id: string; chapter_id?: string }, ctx: unknown): Promise<ToolResult> =>
         runReview(supabaseFor(ctx), args)
+    );
+
+    server.registerTool(
+      'get_voice_report',
+      {
+        title: 'Voice Consistency (whole manuscript)',
+        description:
+          'READ-ONLY, deterministic (no OpenAI). Builds a book-wide voice profile from every ACTIVE section (sentence length, -ly adverb rate, dialogue vs narration, short fragments, very long sentences) and returns the sections that read most differently from the rest — each as a statistical outlier with the specific metrics that differ and by how much, framed as a question for the writer. Never claims prose is bad or AI-written; reports measured differences only. Persists nothing; touches no prose or canon.',
+        inputSchema: z.object({ book_id: z.string().uuid() })
+      },
+      async (args: { book_id: string }, ctx: unknown): Promise<ToolResult> =>
+        getVoiceReport(supabaseFor(ctx), args)
     );
 
     server.registerTool(

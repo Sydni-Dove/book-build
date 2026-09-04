@@ -69,6 +69,24 @@ try {
   const c7 = { type: 'knowledge', title: 'Knows code too early', claim_basis: 'positive_conflict', level_hint: 'likely_conflict', explanation: 'She knows the code before it is available.', involved_entities: [{ kind: 'character', name: 'Daniella' }], evidence_targets: [{ quote_or_terms: 'She already knew the vault code before the meeting' }, { quote_or_terms: 'The vault code stayed sealed and unknown until the final night' }], confidence: 0.85 };
   check('7: affirmative impossible-knowledge → likely_conflict', verify(di7, [c7]).kept[0]?.level === 'likely_conflict');
 
+  // TP · a state change across DISTANT chapters is progression over time, not a
+  // contradiction → downgraded to worth_checking with a change-over-time question.
+  const diTP = mkDI([
+    { id: 'sa', ch: 2, text: 'It was two weeks later and Daniella had not seen or heard from Ashley since that difficult day at all.' },
+    { id: 'sb', ch: 13, text: 'The next morning Daniella texted Ashley about the upcoming baptism and Ashley replied right away with excitement.' }
+  ]);
+  const cTP = (over: any = {}) => ({ type: 'relationship', title: 'Ashley contact: none vs texting', claim_basis: 'positive_conflict', level_hint: 'likely_conflict', explanation: 'One scene shows no contact; a later scene shows texting.', involved_entities: [{ kind: 'character', name: 'Ashley' }, { kind: 'character', name: 'Daniella' }], evidence_targets: [{ quote_or_terms: 'Daniella had not seen or heard from Ashley since that difficult day' }, { quote_or_terms: 'Daniella texted Ashley about the upcoming baptism and Ashley replied' }], confidence: 0.9, ...over });
+  const rTP = verify(diTP, [cTP()]);
+  check('TP: cross-chapter state change downgraded to worth_checking (not likely_conflict)', rTP.kept[0]?.level === 'worth_checking');
+  check('TP: reframed as a change-over-time question', /change over time|different states|different points/i.test(rTP.kept[0]?.question ?? ''));
+
+  // TP2 · the SAME kind of conflict within a close time window stays likely_conflict.
+  const diTP2 = mkDI([
+    { id: 'sa', ch: 2, text: 'Daniella had not seen or heard from Ashley since that difficult day, not once, not at all.' },
+    { id: 'sb', ch: 3, text: 'Daniella texted Ashley about the upcoming baptism and Ashley replied that same afternoon.' }
+  ]);
+  check('TP2: same-timeframe (close chapters) conflict stays likely_conflict', verify(diTP2, [cTP()]).kept[0]?.level === 'likely_conflict');
+
   // 5 · setup/payoff not located → Worth Checking (absence overrides open_question)
   const di5 = mkDI([{ id: 's1', ch: 1, text: 'A locked cedar box sat in the attic, its small brass key long lost.' }]);
   const c5 = { type: 'setup_payoff', title: 'Cedar box setup', claim_basis: 'absence_based', explanation: 'A locked cedar box is introduced.', involved_entities: [{ kind: 'object', name: 'cedar box' }], evidence_targets: [{ quote_or_terms: 'A locked cedar box sat in the attic' }], confidence: 0.6 };

@@ -11,6 +11,7 @@ import { computeContinuityFindings, type FindingCandidate } from '@/lib/ai/revie
 import { buildDeepReviewDigest, verifyAiCandidates, verifyAiCandidatesDetailed, sanitizeHostCandidates, MAX_HOST_CANDIDATES, DEEP_REVIEW_SYSTEM, DEEP_REVIEW_SCHEMA, type DeepInput, type RawAiResult, type RawAiCandidate } from '@/lib/ai/review/deepReview';
 import { callOpenAIStructured } from '@/lib/ai/client';
 import { isAiUsageLimitError } from '@/lib/ai/usage';
+import { computeVoiceConsistency, type VoiceSectionInput } from '@/lib/ai/review/voiceConsistency';
 import {
   selectActiveModules,
   buildGuidanceText,
@@ -1455,6 +1456,30 @@ export async function runReview(supabase: SB, args: { book_id: string; chapter_i
   return listReviewFindings(supabase, { book_id: args.book_id });
 }
 
+// Whole-manuscript VOICE CONSISTENCY — deterministic, read-only. Builds a
+// book-wide voice profile from the ACTIVE sections and surfaces the sections
+// that read most differently from the rest. No LLM, no writes, no persistence.
+export async function getVoiceReport(supabase: SB, args: { book_id: string }): Promise<ToolResult> {
+  const r = await resolveBook(supabase, args.book_id);
+  if (r.status !== 'ok') return revisionResult('NOT_FOUND', { detail: 'Book not found or not permitted.' });
+  const { data: chapters } = await supabase.from('chapters').select('id, chapter_number, title, sort_order').eq('book_id', args.book_id).is('archived_at', null);
+  const chList = (chapters ?? []) as { id: string; chapter_number: number | null; title: string; sort_order: number }[];
+  const chById = new Map(chList.map((c) => [c.id, c]));
+  const chIds = chList.map((c) => c.id);
+  const { data: sections } = chIds.length
+    ? await supabase.from('writing_sections').select('id, chapter_id, sort_order, content').in('chapter_id', chIds)
+    : { data: [] };
+  const secs = (sections ?? []) as { id: string; chapter_id: string; sort_order: number; content: string }[];
+  const input: VoiceSectionInput[] = secs
+    .map((s) => ({ s, ch: chById.get(s.chapter_id) }))
+    .filter((x): x is { s: typeof secs[number]; ch: NonNullable<ReturnType<typeof chById.get>> } => !!x.ch)
+    .sort((a, b) => a.ch.sort_order - b.ch.sort_order || a.s.sort_order - b.s.sort_order)
+    .map(({ s, ch }) => ({ section_id: s.id, chapter_id: s.chapter_id, chapter_number: ch.chapter_number, title: ch.title, content: s.content ?? '' }));
+  const report = computeVoiceConsistency(input);
+  return revisionResult('ok', { book: { id: r.book.id, title: r.book.title }, ...report },
+    report.status === 'ok' ? report.summary.note : (report.detail ?? 'Not enough written yet to compare voice.'));
+}
+
 export async function listReviewFindings(supabase: SB, args: { book_id: string }): Promise<ToolResult> {
   const r = await resolveBook(supabase, args.book_id);
   if (r.status !== 'ok') return revisionResult('NOT_FOUND', { detail: 'Book not found or not permitted.' });
@@ -1522,6 +1547,13 @@ function makeLiveAiGenerator(supabase: SB, bookId: string): AiGenerator {
 // the manuscript state hash. Used identically by the STANDALONE path (which
 // then calls OpenAI to generate candidates) and the MCP HOST path (which returns
 // this context so the host generates candidates). No provider call here.
+// Bump this whenever the deep-review LOGIC changes (methodology, verifier,
+// guards). It is folded into the review_ai_runs cache key so a code change
+// invalidates the hash gate — the next deep run re-runs instead of serving
+// findings produced by the old engine. (v2: temporal-progression guard.)
+const REVIEW_ENGINE_VERSION = 'v2';
+const gateKey = (hash: string) => `${REVIEW_ENGINE_VERSION}:${hash}`;
+
 type DeepReviewContext = { input: Awaited<ReturnType<typeof assembleReviewInput>>; det: FindingCandidate[]; hash: string; scope: string; chapterScoped: boolean };
 async function buildDeepReviewContext(
   supabase: SB,
@@ -1557,7 +1589,7 @@ export async function runDeepReview(
   // Hash gate: skip the LLM if the active manuscript hasn't changed since last AI run.
   const { data: lastRun } = await supabase.from('review_ai_runs').select('manuscript_hash').eq('book_id', args.book_id).eq('scope', scope).maybeSingle();
   const { count: aiCount } = await supabase.from('review_findings').select('id', { count: 'exact', head: true }).eq('book_id', args.book_id).eq('source', 'ai');
-  const upToDate = !!lastRun && lastRun.manuscript_hash === hash && (aiCount ?? 0) > 0;
+  const upToDate = !!lastRun && lastRun.manuscript_hash === gateKey(hash) && (aiCount ?? 0) > 0;
 
   const generate = _generate ?? makeLiveAiGenerator(supabase, args.book_id);
   let aiCandidates: FindingCandidate[] = [];
@@ -1571,7 +1603,7 @@ export async function runDeepReview(
       aiCandidates = verifyAiCandidates(toDeepInput(input), sections as never, raw, deterministicSubjectKeys(det));
       if (args.chapter_id) aiCandidates = aiCandidates.filter((c) => c.chapter_id === args.chapter_id || c.evidence.some((e) => e.chapter_id === args.chapter_id));
       aiRan = true;
-      await supabase.from('review_ai_runs').upsert({ book_id: args.book_id, scope, manuscript_hash: hash, source: 'openai' }, { onConflict: 'book_id,scope' });
+      await supabase.from('review_ai_runs').upsert({ book_id: args.book_id, scope, manuscript_hash: gateKey(hash), source: 'openai' }, { onConflict: 'book_id,scope' });
     } catch (err) {
       aiFailed = true; // §26: preserve deterministic results, surface nothing raw
       if (isAiUsageLimitError(err)) aiLimitReached = true; // daily cap hit — still return deterministic
@@ -1601,7 +1633,7 @@ export async function getDeepReviewContext(supabase: SB, args: { book_id: string
   const digest = buildDeepReviewDigest(toDeepInput(input));
   const { data: lastRun } = await supabase.from('review_ai_runs').select('manuscript_hash').eq('book_id', args.book_id).eq('scope', scope).maybeSingle();
   const { count: aiCount } = await supabase.from('review_findings').select('id', { count: 'exact', head: true }).eq('book_id', args.book_id).eq('source', 'ai');
-  const aiUpToDate = !!lastRun && lastRun.manuscript_hash === hash && (aiCount ?? 0) > 0;
+  const aiUpToDate = !!lastRun && lastRun.manuscript_hash === gateKey(hash) && (aiCount ?? 0) > 0;
   const hostInstructions = DEEP_REVIEW_SYSTEM +
     ` You are generating these candidates yourself (no external model is called). Return at most ${MAX_HOST_CANDIDATES} candidates matching candidate_schema. Do not restate issues already listed in deterministic_findings. Every candidate MUST quote the digest verbatim in evidence_targets; the server re-verifies each quote against the real manuscript and discards anything it cannot locate. Then call verify_and_persist_review_candidates with book_id, this scope, this manuscript_hash (as expected_manuscript_hash), and your candidates.`;
   return revisionResult('ok', {
@@ -1655,7 +1687,7 @@ export async function verifyAndPersistReviewCandidates(
   const { data: priorAi } = await supabase.from('review_findings').select('fingerprint').eq('book_id', args.book_id).eq('source', 'ai');
   const updatedExisting = (priorAi ?? []).filter((p) => existingFps.has(p.fingerprint)).length;
   await reconcileFindings(supabase, args.book_id, [...det, ...ai], { sources: new Set(['deterministic', 'ai']), chapterScoped });
-  await supabase.from('review_ai_runs').upsert({ book_id: args.book_id, scope, manuscript_hash: hash, source: 'mcp_host' }, { onConflict: 'book_id,scope' });
+  await supabase.from('review_ai_runs').upsert({ book_id: args.book_id, scope, manuscript_hash: gateKey(hash), source: 'mcp_host' }, { onConflict: 'book_id,scope' });
 
   const listed = await listReviewFindings(supabase, { book_id: args.book_id });
   const sc2 = listed.structuredContent as Record<string, unknown>;
