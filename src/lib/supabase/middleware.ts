@@ -1,7 +1,13 @@
 import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/signup', '/reset-password'];
+// Reachable without a session. `/auth/callback` MUST be here so the PKCE
+// code-exchange request (which has no session yet) isn't bounced to /login.
+const PUBLIC_PATHS = ['/login', '/signup', '/reset-password', '/auth/callback'];
+// Signed-in users are redirected away from these only. NOT /reset-password —
+// a password-recovery session lands there authenticated to set a new password,
+// and NOT /auth/callback, which must run to establish the session.
+const AUTHED_BOUNCE_PATHS = ['/login', '/signup'];
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -39,7 +45,7 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user && isPublic) {
+  if (user && AUTHED_BOUNCE_PATHS.some((p) => path.startsWith(p))) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
