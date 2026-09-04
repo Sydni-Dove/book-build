@@ -9,7 +9,7 @@ This README is the technical companion to the product architecture doc ("Book Bu
 ## 1. Folder structure
 
 ```
-section-by-section-app/
+book-build/
 ├── middleware.ts                 # refreshes the Supabase session on every request; gates protected routes
 ├── supabase/
 │   └── migrations/0001_init.sql  # full schema + RLS — run this first
