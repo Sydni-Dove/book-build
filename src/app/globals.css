@@ -1,0 +1,45 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dove Expressions brand type: Playfair Display for headings/titles only,
+   Lato for everything else — including the manuscript body and AI copy. */
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Lato:wght@400;500;600;700;800&display=swap');
+
+:root {
+  color-scheme: light;
+}
+
+html,
+body {
+  background: #fdfdfd;
+  color: #1b1717;
+}
+
+body {
+  font-family: Lato, ui-sans-serif, system-ui, sans-serif;
+}
+
+.font-display {
+  font-family: 'Playfair Display', ui-serif, Georgia, serif;
+}
+
+/* Manuscript editor: quiet, readable, no chrome fighting for attention.
+   Body copy is Lato per the brand spec — Playfair is reserved for
+   headings and titles, not running prose. */
+.manuscript-textarea {
+  font-family: Lato, ui-sans-serif, system-ui, sans-serif;
+  font-size: 1.1875rem;
+  line-height: 1.85;
+}
+
+/* On phones, match a natural word-processor page (like MS Word mobile):
+   a slightly smaller size and denser line spacing so prose reads as a real
+   document instead of an airy, spread-out column. Stays >=16px so iOS never
+   zooms on focus. The calm, airy desktop editor is unchanged above. */
+@media (max-width: 640px) {
+  .manuscript-textarea {
+    font-size: 1.0625rem; /* 17px */
+    line-height: 1.6;
+  }
+}

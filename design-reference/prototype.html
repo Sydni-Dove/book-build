@@ -1,0 +1,2573 @@
+<title>Book Build Prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500;1,600&family=Lato:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   TOKENS — Dove Expressions visual identity.
+   Deliberately single-theme (light): a literary writing studio,
+   not a dashboard, so this commits to one calm world rather than
+   also designing a dark mode. color-scheme is pinned to match.
+   ============================================================ */
+:root{
+  color-scheme: light;
+  --paper: #FDFDFD;
+  --paper-raised: #FFFFFF;
+  --paper-sunken: #F7F1EE;
+  --ink: #1B1717;
+  --ink-soft: #4C4442;
+  --ink-faint: #8C8280;
+  --line: #E9E1DD;
+  --line-strong: #D9CBC5;
+
+  --accent: #630000;
+  --accent-strong: #470000;
+  --accent-soft: #F2DFD8;
+  --accent-soft-strong: #E7C4BA;
+
+  --gold: #E6A742;
+  --gold-soft: #FAF0DC;
+  --gold-strong: #97621C;
+
+  --sunrise: #D97904;
+  --sunrise-soft: #FBE7CE;
+  --coral: #D96248;
+  --coral-soft: #F7E1DB;
+  --pink: #F2DFD8;
+
+  --confirmed: #1B1717;
+  --confirmed-soft: #F0ECEA;
+  /* "good / confirmed" states use the charcoal treatment throughout, per
+     brand direction — no off-palette green. */
+  --good: var(--confirmed);
+  --good-soft: var(--confirmed-soft);
+
+  --shadow: 0 1px 2px rgba(27,23,23,0.05), 0 6px 18px rgba(27,23,23,0.06);
+  --shadow-lg: 0 4px 10px rgba(27,23,23,0.10), 0 22px 46px rgba(27,23,23,0.14);
+  --display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+  --sans: 'Lato', 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --radius-s: 6px;
+  --radius-m: 10px;
+  --radius-l: 16px;
+}
+
+*{box-sizing:border-box;}
+html,body{margin:0;padding:0;}
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+h1,h2,h3,h4{font-family:var(--display);font-weight:600;margin:0;text-wrap:balance;}
+p{margin:0;}
+button{font-family:inherit;}
+::selection{background:var(--accent-soft-strong);}
+.u-caps{
+  font-family:var(--sans);
+  text-transform:uppercase;
+  letter-spacing:.09em;
+  font-weight:700;
+  font-size:11px;
+}
+a{color:inherit;}
+
+/* ============================================================
+   PROTOTYPE CHROME (not part of the app design itself)
+   ============================================================ */
+.proto-bar{
+  position:sticky; top:0; z-index:500;
+  display:flex; align-items:center; gap:2px;
+  background:var(--accent-strong);
+  color:#F3F0E4;
+  padding:8px 14px;
+  overflow-x:auto;
+  scrollbar-width:none;
+}
+.proto-bar::-webkit-scrollbar{display:none;}
+.proto-label{
+  font-family:var(--sans); font-weight:800; font-size:11px; letter-spacing:.12em;
+  text-transform:uppercase; opacity:.72; padding:6px 12px 6px 4px; white-space:nowrap;
+  border-right:1px solid rgba(243,240,228,.22); margin-right:6px;
+}
+.proto-tab{
+  appearance:none; border:none; background:transparent; color:#F3F0E4;
+  font-family:var(--sans); font-size:12.5px; font-weight:600; letter-spacing:.01em;
+  padding:7px 12px; border-radius:20px; cursor:pointer; white-space:nowrap;
+  opacity:.72; transition:opacity .15s, background .15s;
+}
+.proto-tab:hover{opacity:1; background:rgba(243,240,228,.1);}
+.proto-tab.is-active{opacity:1; background:rgba(243,240,228,.16);}
+
+.screen{display:none;}
+.screen.is-active{display:block;}
+
+/* ============================================================
+   APP SHELL — shared chrome for desktop workspace
+   ============================================================ */
+.app-shell{
+  display:grid;
+  grid-template-columns: 248px minmax(0,1fr) 300px;
+  min-height:calc(100vh - 41px);
+  background:var(--paper);
+}
+.rail{padding:28px 20px 40px;}
+.rail-left{border-right:1px solid var(--line);}
+.rail-right{border-left:1px solid var(--line);}
+
+.brand{
+  display:flex; align-items:baseline; gap:8px; margin-bottom:26px;
+}
+.brand-mark{font-family:var(--display); font-weight:700; font-size:19px; letter-spacing:.01em;}
+.brand-sub{font-family:var(--sans); font-size:11px; color:var(--ink-faint);}
+
+.nav-group{margin-bottom:22px;}
+.nav-heading{
+  font-family:var(--sans); font-size:10.5px; font-weight:800; letter-spacing:.1em;
+  text-transform:uppercase; color:var(--ink-faint); margin:0 0 8px 4px;
+}
+.nav-link{
+  display:flex; align-items:center; gap:9px; padding:7px 8px; border-radius:var(--radius-s);
+  font-size:13.5px; color:var(--ink-soft); text-decoration:none; cursor:pointer;
+  font-weight:500;
+}
+.nav-link:hover{background:var(--paper-sunken); color:var(--ink);}
+.nav-link.is-current{background:var(--accent-soft); color:var(--accent-strong); font-weight:600;}
+.nav-link .dot{width:5px;height:5px;border-radius:50%;background:var(--ink-faint);flex:0 0 auto;}
+
+.chapter-tree{margin-top:2px;}
+.chapter-row{
+  display:flex; align-items:center; gap:8px; padding:6px 8px; border-radius:var(--radius-s);
+  font-size:13px; color:var(--ink-soft); cursor:pointer;
+}
+.chapter-row:hover{background:var(--paper-sunken);}
+.chapter-row.is-current{background:var(--accent-soft); color:var(--accent-strong); font-weight:600;}
+.chapter-num{
+  font-family:var(--sans); font-variant-numeric:tabular-nums; font-size:11px; color:var(--ink-faint);
+  width:16px; flex:0 0 auto; text-align:right;
+}
+.chapter-row.is-current .chapter-num{color:var(--accent);}
+.chapter-title{flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.chapter-status-dot{width:6px;height:6px;border-radius:50%;flex:0 0 auto;}
+.chapter-status-dot.complete{background:var(--good);}
+.chapter-status-dot.drafting{background:var(--gold);}
+.chapter-status-dot.notstarted{background:var(--line-strong);}
+
+.section-list{margin:2px 0 6px 24px; border-left:1px solid var(--line); padding-left:10px;}
+.section-row{
+  display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:var(--radius-s);
+  font-size:12.5px; color:var(--ink-faint); cursor:pointer;
+}
+.section-row:hover{background:var(--paper-sunken); color:var(--ink-soft);}
+.section-row.is-current{background:var(--accent-soft); color:var(--accent-strong); font-weight:600;}
+.section-row .scene-tag{
+  font-size:10.5px; color:var(--gold-strong); font-weight:600;
+}
+
+.chapters-collapsed{
+  margin-top:4px; padding:8px; text-align:left; width:100%; background:none; border:none;
+  color:var(--ink-faint); font-size:12px; cursor:pointer; font-family:var(--sans);
+  display:flex; align-items:center; gap:5px;
+}
+.chapters-collapsed:hover{color:var(--ink-soft);}
+
+/* ---------------- center manuscript column ---------------- */
+.manuscript-col{
+  padding:28px 44px 80px;
+  max-width:760px;
+  margin:0 auto;
+}
+.ms-header{margin-bottom:18px;}
+.ms-chapter-title{font-size:26px; letter-spacing:.005em;}
+.ms-scene-line{font-family:var(--sans); font-size:12.5px; color:var(--gold-strong); margin-top:6px; font-weight:600;}
+.ms-scene-line::before{content:"◆ "; font-size:9px; vertical-align:middle;}
+
+.byc-card{
+  margin:18px 0 26px; background:var(--paper-raised); border:1px solid var(--line);
+  border-radius:var(--radius-l); box-shadow:var(--shadow); overflow:hidden;
+  transition:all .2s ease;
+}
+.byc-collapsed{
+  display:flex; align-items:center; gap:10px; padding:12px 16px; cursor:pointer;
+}
+.byc-collapsed:hover{background:var(--paper-sunken);}
+.byc-icon{
+  width:26px;height:26px;border-radius:50%;background:var(--gold-soft);color:var(--gold-strong);
+  display:flex;align-items:center;justify-content:center;font-size:13px;flex:0 0 auto;
+}
+.byc-collapsed-text{flex:1; font-size:15px; line-height:1.5; color:var(--ink-soft);}
+.byc-collapsed-text b{color:var(--ink); font-weight:600;}
+.byc-chevron{color:var(--ink-faint); font-size:12px; transition:transform .2s;}
+.byc-card.is-open .byc-chevron{transform:rotate(180deg);}
+.byc-body{display:none; padding:0 20px 20px;}
+.byc-card.is-open .byc-body{display:block;}
+.byc-recap{
+  font-size:15px; line-height:1.65; color:var(--ink-soft); padding:14px 0 16px;
+  border-bottom:1px solid var(--line); margin-bottom:16px;
+}
+.byc-recap b{color:var(--ink); font-weight:600;}
+.byc-question{font-family:var(--sans); font-size:18.5px; font-weight:700; margin-bottom:12px;}
+.byc-followup{
+  font-size:14px; line-height:1.5; color:var(--ink-faint); margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);
+}
+textarea.byc-input{
+  width:100%; border:1px solid var(--line-strong); border-radius:var(--radius-m); padding:11px 13px;
+  font-family:var(--sans); font-size:14.5px; color:var(--ink); background:var(--paper);
+  resize:vertical; min-height:52px;
+}
+textarea.byc-input:focus{outline:2px solid var(--accent-soft-strong); outline-offset:1px; border-color:var(--accent);}
+.byc-actions{display:flex; gap:8px; margin-top:12px;}
+
+.btn{
+  appearance:none; border:1px solid var(--line-strong); background:var(--paper-raised); color:var(--ink);
+  padding:9px 15px; border-radius:20px; font-size:13px; font-weight:600; cursor:pointer;
+  font-family:var(--sans); transition:background .15s,border-color .15s,transform .1s;
+  min-height:38px;
+}
+.btn:hover{background:var(--paper-sunken);}
+.btn:active{transform:scale(.98);}
+.btn-primary{background:var(--accent); border-color:var(--accent); color:#F6F3EC;}
+.btn-primary:hover{background:var(--accent-strong); border-color:var(--accent-strong);}
+.btn-ghost{border-color:transparent; background:transparent;}
+.btn-ghost:hover{background:var(--paper-sunken);}
+.btn-sm{padding:6px 12px; font-size:12px; min-height:32px;}
+:focus-visible{outline:2px solid var(--accent); outline-offset:2px;}
+
+.editor-toolbar{
+  display:flex; align-items:center; gap:14px; margin-bottom:16px; padding-bottom:12px;
+  border-bottom:1px solid var(--line); font-size:12px; color:var(--ink-faint); flex-wrap:wrap;
+}
+.editor-toolbar .sep{width:3px;height:3px;border-radius:50%;background:var(--ink-faint);}
+.status-pill{
+  display:inline-flex; align-items:center; gap:5px; font-weight:600; font-size:11.5px;
+  padding:3px 9px; border-radius:20px;
+}
+.status-pill.draft{background:var(--gold-soft); color:var(--gold-strong);}
+.status-pill.saved-dot{background:none;padding:0;color:var(--good);}
+.status-pill.saved-dot .dot{width:6px;height:6px;border-radius:50%;background:var(--good);display:inline-block;}
+
+.manuscript-text{
+  font-family:var(--sans); font-size:19px; line-height:1.85; color:var(--ink);
+}
+.manuscript-text p{margin-bottom:1.35em;}
+.manuscript-text .cursor-line{
+  border-left:2px solid var(--accent); padding-left:2px; margin-left:-2px;
+}
+.editor-caret{
+  display:inline-block; width:1px; height:1.1em; background:var(--accent); vertical-align:text-bottom;
+  animation:blink 1.1s step-end infinite;
+}
+@keyframes blink{50%{opacity:0;}}
+
+.prev-section-fade{
+  font-family:var(--sans); font-style:italic; font-size:15px; line-height:1.7; color:var(--ink-faint);
+  padding-bottom:16px; margin-bottom:18px; border-bottom:1px dashed var(--line);
+}
+.prev-section-label{font-family:var(--sans); font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); font-weight:700; margin-bottom:8px; display:block;}
+
+/* ---------------- right AI rail ---------------- */
+.ai-title{font-size:13px; font-weight:700; margin-bottom:2px;}
+.ai-sub{font-size:11.5px; color:var(--ink-faint); margin-bottom:18px;}
+
+.ai-primary{
+  display:block; width:100%; text-align:left; background:var(--accent-soft); border:1px solid var(--accent-soft-strong);
+  border-radius:var(--radius-m); padding:13px 14px; margin-bottom:10px; cursor:pointer;
+  font-family:var(--sans);
+}
+.ai-primary:hover{background:var(--accent-soft-strong);}
+.ai-primary-title{font-size:13.5px; font-weight:700; color:var(--accent-strong); display:flex; align-items:center; gap:7px;}
+.ai-primary-desc{font-size:11.5px; color:var(--ink-soft); margin-top:4px; line-height:1.4;}
+
+.ai-secondary-group{margin:18px 0 14px;}
+.ai-secondary{
+  display:flex; align-items:center; gap:9px; width:100%; text-align:left; background:none; border:none;
+  padding:8px 6px; border-radius:var(--radius-s); cursor:pointer; font-size:12.5px; font-weight:600; color:var(--ink);
+}
+.ai-secondary:hover{background:var(--paper-sunken);}
+.ai-secondary .ico{width:15px;text-align:center;color:var(--ink-faint);font-size:12px;}
+
+.ai-tertiary-group{padding-top:14px; border-top:1px solid var(--line);}
+.ai-tertiary{
+  display:flex; align-items:center; justify-content:space-between; width:100%; text-align:left; background:none; border:none;
+  padding:7px 6px; border-radius:var(--radius-s); cursor:pointer; font-size:12px; color:var(--ink-faint); font-weight:600;
+}
+.ai-tertiary:hover{background:var(--paper-sunken); color:var(--ink-soft);}
+
+.ai-note{
+  margin-top:14px; font-size:12px; line-height:1.5; color:var(--good); background:var(--good-soft);
+  padding:9px 11px; border-radius:var(--radius-s); display:none;
+}
+.ai-note.is-shown{display:block;}
+.ai-hint{
+  margin-top:8px; font-size:11.5px; line-height:1.5; color:var(--ink-faint); background:var(--paper-sunken);
+  padding:9px 11px; border-radius:var(--radius-s); display:none;
+}
+.ai-hint.is-shown{display:block;}
+.ai-hint a{color:var(--accent-strong); font-weight:600; text-decoration:underline; cursor:pointer;}
+
+.canon-legend{
+  margin-top:22px; padding-top:16px; border-top:1px solid var(--line); font-size:11.5px; color:var(--ink-faint); line-height:2.1;
+}
+.chip{display:inline-flex; align-items:center; gap:5px; font-size:11px; font-weight:700; padding:3px 9px 3px 7px; border-radius:20px; margin-right:6px;}
+.chip::before{font-size:9px; line-height:1;}
+/* Four statuses, distinguished by icon + label as well as color —
+   never color alone. Working Note (soft/neutral-pink), Author Canon
+   (burgundy), Manuscript Fact (charcoal/confirmed), AI Suggestion
+   (pale gold). */
+.chip-working{background:var(--pink); color:var(--accent-strong);}
+.chip-working::before{content:"○";}
+.chip-canon{background:var(--accent); color:#fff;}
+.chip-canon::before{content:"●";}
+.chip-fact{background:var(--confirmed-soft); color:var(--ink);}
+.chip-fact::before{content:"✓";}
+.chip-suggestion{background:var(--gold-soft); color:var(--gold-strong);}
+.chip-suggestion::before{content:"✦";}
+
+/* ============================================================
+   GENERIC "DEDICATED SCREEN" LAYOUT (Develop This / Fix With Me / Setting Builder / Import)
+   ============================================================ */
+.stage{
+  min-height:calc(100vh - 41px);
+  display:flex; flex-direction:column; align-items:center;
+  padding:52px 24px 90px;
+}
+.stage-back{
+  align-self:flex-start; max-width:640px; width:100%; margin:0 auto 22px;
+  display:flex;
+}
+.stage-back-link{
+  display:inline-flex; align-items:center; gap:6px; font-size:12.5px; font-weight:600; color:var(--ink-faint);
+  cursor:pointer; text-decoration:none;
+}
+.stage-back-link:hover{color:var(--accent-strong);}
+.stage-card{
+  width:100%; max-width:640px; background:var(--paper-raised); border:1px solid var(--line);
+  border-radius:var(--radius-l); box-shadow:var(--shadow); padding:34px 38px;
+}
+.stage-eyebrow{font-size:11px; font-weight:800; letter-spacing:.1em; text-transform:uppercase; color:var(--gold-strong); margin-bottom:10px;}
+.stage-title{font-size:23px; margin-bottom:6px;}
+.stage-desc{font-size:13.5px; color:var(--ink-soft); line-height:1.55; margin-bottom:26px;}
+
+/* Develop This */
+.seed-box{
+  background:var(--paper-sunken); border:1px solid var(--line); border-radius:var(--radius-m);
+  padding:13px 15px; font-family:var(--sans); font-size:15px; color:var(--ink-soft); margin-bottom:24px;
+}
+.seed-box .lbl{font-family:var(--sans); font-size:10.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); display:block; margin-bottom:6px;}
+/* Editorial marginalia — the AI's voice reads like a note in the margin,
+   not a chat bubble. A compact eyebrow label carries the speaker instead
+   of an avatar circle; a colored left rule (not a background fill) keeps
+   it quiet on the page. */
+.editorial-thread{display:flex; flex-direction:column; gap:14px; margin-bottom:22px;}
+.editorial-note{border-left:2px solid var(--line-strong); padding:1px 0 1px 14px;}
+.editorial-note .en-label{
+  display:block; font-family:var(--sans); font-size:10px; font-weight:800; letter-spacing:.09em;
+  text-transform:uppercase; margin-bottom:3px; color:var(--ink-faint);
+}
+.editorial-note.ai{border-left-color:var(--accent);}
+.editorial-note.ai .en-label{color:var(--accent-strong);}
+.editorial-note.ai .en-text{color:var(--ink); font-weight:500;}
+.editorial-note.me{border-left-color:var(--gold);}
+.editorial-note.me .en-label{color:var(--gold-strong);}
+.editorial-note.me .en-text{color:var(--ink-soft);}
+.editorial-note .en-text{font-size:14.5px; line-height:1.55;}
+.develop-answer-row{display:flex; gap:8px; margin-top:4px;}
+.develop-answer-row textarea{flex:1;}
+.develop-actions{display:flex; justify-content:space-between; align-items:center; margin-top:16px; padding-top:16px; border-top:1px solid var(--line);}
+
+.established-box{margin-top:28px; padding-top:22px; border-top:1px solid var(--line);}
+.established-heading{font-size:11px; font-weight:800; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:12px;}
+.established-item{
+  display:flex; align-items:flex-start; gap:10px; padding:10px 0; border-bottom:1px solid var(--line);
+}
+.established-item:last-child{border-bottom:none;}
+.established-text{flex:1; font-size:13.5px; color:var(--ink); line-height:1.5;}
+.established-toggle{
+  flex:0 0 auto; display:flex; background:var(--paper-sunken); border-radius:20px; padding:2px; gap:2px;
+}
+.toggle-opt{
+  border:none; background:none; font-size:10.5px; font-weight:700; padding:4px 9px; border-radius:16px; cursor:pointer; color:var(--ink-faint);
+  white-space:nowrap;
+}
+.toggle-opt.is-active.working{background:var(--paper-raised); color:var(--ink-soft); box-shadow:0 1px 2px rgba(0,0,0,.08);}
+.toggle-opt.is-active.canon{background:var(--gold-soft); color:var(--gold-strong); box-shadow:0 1px 2px rgba(0,0,0,.08);}
+
+/* Fix With Me */
+.issue-flag{
+  display:inline-flex; align-items:center; gap:7px; background:var(--gold-soft); color:var(--gold-strong);
+  font-size:11.5px; font-weight:800; letter-spacing:.03em; padding:5px 11px; border-radius:20px; margin-bottom:18px;
+}
+.issue-flag::before{content:"✦"; font-size:9px;}
+.fix-excerpt{
+  font-family:var(--sans); font-size:16.5px; line-height:1.75; color:var(--ink); background:var(--paper-sunken);
+  border-left:3px solid var(--gold); border-radius:0 var(--radius-m) var(--radius-m) 0; padding:16px 20px; margin-bottom:18px;
+}
+.fix-explain{font-size:13.5px; line-height:1.6; color:var(--ink-soft); margin-bottom:24px;}
+.fix-actions{display:flex; flex-wrap:wrap; gap:9px; margin-bottom:6px;}
+.fix-flow{display:none; margin-top:24px; padding-top:22px; border-top:1px solid var(--line);}
+.fix-flow.is-shown{display:block;}
+.fix-result{display:none; margin-top:22px; padding-top:20px; border-top:1px solid var(--line);}
+.fix-result.is-shown{display:block;}
+.fix-insert{background:var(--good-soft); color:var(--accent-strong); border-radius:3px; padding:0 2px;}
+
+/* Setting Builder */
+.sb-toprow{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:22px;}
+.idk-banner{
+  display:flex; align-items:center; gap:10px; background:var(--gold-soft); border:1px solid var(--gold);
+  color:var(--gold-strong); border-radius:var(--radius-m); padding:11px 14px; font-size:13px; font-weight:600; margin-bottom:22px;
+}
+.concept-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:12px; margin-bottom:10px;}
+.concept-card{
+  border:1.5px solid var(--line-strong); border-radius:var(--radius-m); padding:16px 14px; cursor:pointer;
+  background:var(--paper); transition:border-color .15s, background .15s;
+}
+.concept-card:hover{border-color:var(--accent);}
+.concept-card.is-selected{border-color:var(--accent); background:var(--accent-soft);}
+.concept-letter{font-size:10.5px; font-weight:800; letter-spacing:.08em; color:var(--ink-faint); margin-bottom:8px;}
+.concept-card.is-selected .concept-letter{color:var(--accent-strong);}
+.concept-name{font-family:var(--sans); font-size:15px; font-weight:600; margin-bottom:6px;}
+.concept-desc{font-size:12px; color:var(--ink-soft); line-height:1.5;}
+.concept-alt-row{display:flex; gap:14px; margin-top:14px; margin-bottom:6px;}
+.concept-alt-link{font-size:12.5px; font-weight:600; color:var(--ink-faint); cursor:pointer; text-decoration:underline;}
+.concept-alt-link:hover{color:var(--accent-strong);}
+
+.sb-fields{display:none; margin-top:26px; padding-top:24px; border-top:1px solid var(--line); flex-direction:column; gap:16px;}
+.sb-fields.is-shown{display:flex;}
+.sb-field label{display:block; font-size:11px; font-weight:700; letter-spacing:.04em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:6px;}
+.sb-field textarea, .sb-field input{
+  width:100%; border:1px solid var(--line-strong); border-radius:var(--radius-m); padding:10px 12px;
+  font-family:var(--sans); font-size:14px; color:var(--ink); background:var(--paper); resize:vertical;
+}
+.sb-field textarea:focus, .sb-field input:focus{outline:2px solid var(--accent-soft-strong); border-color:var(--accent);}
+.sb-two-col{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+
+/* Import flow */
+.import-steps{display:flex; align-items:center; gap:6px; margin-bottom:30px; max-width:640px; width:100%;}
+.import-step-dot{
+  flex:1; height:3px; border-radius:2px; background:var(--line-strong); cursor:pointer;
+}
+.import-step-dot.is-done{background:var(--accent);}
+.import-step-dot.is-current{background:var(--gold);}
+.import-substep{display:none;}
+.import-substep.is-shown{display:block;}
+
+.upload-well{
+  border:1.5px dashed var(--line-strong); border-radius:var(--radius-l); padding:36px 24px; text-align:center;
+  margin-bottom:22px;
+}
+.upload-icon{font-size:26px; margin-bottom:10px;}
+.file-chip{
+  display:flex; align-items:center; gap:12px; background:var(--paper-sunken); border:1px solid var(--line);
+  border-radius:var(--radius-m); padding:13px 16px; margin-bottom:22px;
+}
+.file-icon{width:34px;height:34px;border-radius:8px;background:var(--accent-soft);color:var(--accent-strong);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;flex:0 0 auto;}
+.file-meta b{display:block; font-size:14px;}
+.file-meta span{font-size:11.5px; color:var(--ink-faint);}
+
+.detect-banner{font-size:15px; margin-bottom:16px;}
+.detect-banner b{font-family:var(--sans); font-weight:700;}
+.chapter-detect-list{max-height:380px; overflow-y:auto; border:1px solid var(--line); border-radius:var(--radius-m); margin-bottom:18px;}
+.detect-row{
+  display:flex; align-items:center; gap:12px; padding:10px 14px; border-bottom:1px solid var(--line);
+}
+.detect-row:last-child{border-bottom:none;}
+.detect-row:hover{background:var(--paper-sunken);}
+.detect-num{font-size:11px; color:var(--ink-faint); width:20px; flex:0 0 auto; font-variant-numeric:tabular-nums;}
+.detect-title-block{flex:1; min-width:0;}
+.detect-title-block b{font-size:13.5px; display:block;}
+.detect-title-block span{font-size:11.5px; color:var(--ink-faint); display:block; margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+.detect-menu-btn{
+  flex:0 0 auto; border:1px solid var(--line-strong); background:var(--paper); border-radius:16px; padding:5px 11px;
+  font-size:11px; font-weight:600; color:var(--ink-soft); cursor:pointer;
+}
+.detect-menu-btn:hover{background:var(--paper-sunken);}
+
+.progress-wrap{margin:30px 0 8px;}
+.progress-track{height:8px; border-radius:8px; background:var(--paper-sunken); overflow:hidden; margin-bottom:12px;}
+.progress-fill{height:100%; background:var(--accent); border-radius:8px; width:57%; transition:width .5s ease;}
+.progress-label{display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft); font-weight:600;}
+.progress-sub{font-size:12.5px; color:var(--ink-faint); margin-top:18px; display:flex; align-items:center; gap:8px;}
+.spinner{width:13px;height:13px;border-radius:50%;border:2px solid var(--line-strong); border-top-color:var(--accent); animation:spin 0.9s linear infinite; flex:0 0 auto;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+.proposal-group{margin-bottom:8px;}
+.proposal-group-head{
+  display:flex; align-items:center; justify-content:space-between; padding:10px 2px; cursor:pointer;
+}
+.proposal-group-title{font-size:11px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); display:flex; align-items:center; gap:8px;}
+.proposal-count{background:var(--paper-sunken); color:var(--ink-soft); font-size:10.5px; font-weight:700; padding:1px 7px; border-radius:20px;}
+.proposal-approve-all{font-size:11.5px; font-weight:600; color:var(--accent-strong); cursor:pointer; text-decoration:underline;}
+.proposal-card{
+  border:1px solid var(--line); border-radius:var(--radius-m); padding:15px 16px; margin-bottom:10px; background:var(--paper);
+  transition:opacity .2s;
+}
+.proposal-card.is-decided{opacity:.5;}
+.proposal-top{display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:8px;}
+.proposal-name{font-family:var(--sans); font-size:15px; font-weight:600;}
+.proposal-decided-tag{font-size:11px; font-weight:700; color:var(--good); display:none;}
+.proposal-card.is-decided .proposal-decided-tag{display:inline;}
+.proposal-card.is-decided .proposal-actions{display:none;}
+.exists-tag{
+  font-size:10.5px; font-weight:700; color:var(--accent-strong); background:var(--accent-soft); padding:2px 8px; border-radius:20px;
+}
+.proposal-found-label{font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); margin:8px 0 4px;}
+.proposal-excerpt{
+  font-family:var(--sans); font-style:italic; font-size:13px; color:var(--ink-soft); line-height:1.55;
+  border-left:2px solid var(--line-strong); padding-left:10px; margin-bottom:10px;
+}
+.proposal-fact{font-size:13px; color:var(--ink); line-height:1.5; margin-bottom:10px;}
+.proposal-actions{display:flex; gap:7px;}
+
+.finish-wrap{text-align:center; padding:20px 0;}
+.finish-check{
+  width:56px;height:56px;border-radius:50%; background:var(--good-soft); color:var(--good); display:flex;
+  align-items:center; justify-content:center; font-size:26px; margin:0 auto 20px;
+}
+.finish-stats{display:flex; justify-content:center; gap:28px; margin:22px 0 30px;}
+.finish-stat b{display:block; font-family:var(--sans); font-size:22px;}
+.finish-stat span{font-size:11px; color:var(--ink-faint); text-transform:uppercase; letter-spacing:.06em; font-weight:700;}
+
+/* ============================================================
+   IPHONE SCREEN
+   ============================================================ */
+.phone-stage{
+  min-height:calc(100vh - 41px); display:flex; align-items:flex-start; justify-content:center; gap:40px;
+  padding:44px 20px 80px; flex-wrap:wrap;
+}
+.phone-controls{width:230px; padding-top:10px;}
+.phone-controls h3{font-size:15px; margin-bottom:8px;}
+.phone-controls p{font-size:12.5px; color:var(--ink-soft); line-height:1.55; margin-bottom:16px;}
+.phone-controls .btn{width:100%; margin-bottom:8px; text-align:center; justify-content:center; display:flex;}
+.phone-controls ul{margin:14px 0 0; padding-left:18px; font-size:12px; color:var(--ink-faint); line-height:1.7;}
+
+.phone-frame{
+  width:375px; height:812px; border-radius:52px; background:#0B0B0C; padding:14px;
+  box-shadow:var(--shadow-lg); position:relative; flex:0 0 auto;
+}
+.phone-screen{
+  width:100%; height:100%; border-radius:38px; background:var(--paper); overflow:hidden; position:relative;
+  display:flex; flex-direction:column;
+}
+.notch{
+  position:absolute; top:0; left:50%; transform:translateX(-50%); width:120px; height:28px; background:#0B0B0C;
+  border-radius:0 0 18px 18px; z-index:50;
+}
+.home-indicator{
+  position:absolute; bottom:7px; left:50%; transform:translateX(-50%); width:120px; height:4px; border-radius:3px;
+  background:var(--ink); opacity:.35; z-index:50;
+}
+.pt-status{height:env(safe-area-inset-top,0px);}
+
+.ph-topbar{
+  padding-top:34px; padding-left:16px; padding-right:16px; padding-bottom:10px;
+  display:flex; align-items:center; justify-content:space-between; border-bottom:1px solid var(--line); flex:0 0 auto;
+  background:var(--paper-raised);
+}
+.ph-back{font-size:19px; color:var(--ink-soft); width:30px;}
+.ph-chapter{font-family:var(--display); font-weight:700; font-size:14.5px; text-align:center; flex:1;}
+.ph-saved{font-size:10px; font-weight:700; color:var(--good); display:flex; align-items:center; gap:4px; justify-content:flex-end; width:56px;}
+.ph-saved .dot{width:5px;height:5px;border-radius:50%;background:var(--good);}
+
+.ph-body{flex:1; overflow-y:auto; padding:16px 18px 20px;}
+.ph-byc{
+  background:var(--paper-raised); border:1px solid var(--line); border-radius:12px; padding:11px 13px; margin-bottom:16px;
+  font-size:14.5px; line-height:1.45; color:var(--ink-soft); display:flex; align-items:center; gap:8px;
+}
+.ph-byc b{color:var(--ink);}
+.ph-editor{font-family:var(--sans); font-size:17px; line-height:1.75; color:var(--ink);}
+.ph-editor p{margin-bottom:1.1em;}
+.ph-wordcount{font-size:11px; color:var(--ink-faint); margin-top:14px;}
+
+.ph-tabbar{
+  flex:0 0 auto; display:flex; border-top:1px solid var(--line); background:var(--paper-raised);
+  padding-bottom:max(6px, env(safe-area-inset-bottom,0px));
+}
+.ph-tab{
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; padding:9px 4px 6px; background:none; border:none;
+  font-family:var(--sans); font-size:10.5px; font-weight:600; color:var(--ink-faint); cursor:pointer;
+}
+.ph-tab .ic{font-size:16px;}
+.ph-tab.is-active{color:var(--accent-strong);}
+
+.ph-sheet-backdrop{
+  position:absolute; inset:0; background:rgba(20,18,12,.42); z-index:80; opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.ph-sheet-backdrop.is-shown{opacity:1; pointer-events:auto;}
+.ph-sheet{
+  position:absolute; left:0; right:0; bottom:0; background:var(--paper-raised); border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 30px rgba(0,0,0,.25); transform:translateY(100%); transition:transform .25s ease; z-index:90;
+  padding:10px 18px calc(20px + env(safe-area-inset-bottom,0px));
+  max-height:78%; overflow-y:auto;
+}
+.ph-sheet.is-shown{transform:translateY(0);}
+.ph-sheet-handle{width:36px;height:4px;border-radius:3px;background:var(--line-strong); margin:6px auto 14px;}
+.ph-sheet-title{font-size:14px; font-weight:700; margin-bottom:2px;}
+.ph-sheet-sub{font-size:11.5px; color:var(--ink-faint); margin-bottom:14px;}
+.ph-sheet-item{
+  display:flex; align-items:center; gap:11px; padding:12px 8px; border-bottom:1px solid var(--line); font-size:14px; font-weight:600;
+}
+.ph-sheet-item:last-child{border-bottom:none;}
+.ph-sheet-item .ic{width:20px; text-align:center; color:var(--ink-faint); font-size:15px;}
+.ph-sheet-close{
+  position:sticky; top:0; float:right; border:none; background:var(--paper-sunken); width:26px;height:26px;border-radius:50%;
+  color:var(--ink-soft); font-size:13px; cursor:pointer; margin:4px 0 -20px auto; display:flex; align-items:center; justify-content:center;
+}
+
+.ph-drawer{
+  position:absolute; inset:0; background:var(--paper); z-index:70; transform:translateX(100%); transition:transform .25s ease;
+  display:flex; flex-direction:column;
+}
+.ph-drawer.is-shown{transform:translateX(0);}
+.ph-drawer-head{
+  padding-top:34px; padding:34px 16px 12px; display:flex; align-items:center; gap:10px; border-bottom:1px solid var(--line);
+  background:var(--paper-raised);
+}
+.ph-drawer-title{font-family:var(--display); font-weight:700; font-size:16px; flex:1;}
+.ph-drawer-close{border:none;background:var(--paper-sunken);width:26px;height:26px;border-radius:50%;color:var(--ink-soft);font-size:13px;cursor:pointer;}
+.ph-drawer-body{flex:1; overflow-y:auto; padding:8px 10px;}
+.ph-drawer-row{padding:11px 10px; font-size:14px; border-bottom:1px solid var(--line); display:flex; align-items:center; gap:10px;}
+.ph-drawer-row.is-current{color:var(--accent-strong); font-weight:700;}
+.ph-drawer-num{font-size:11px; color:var(--ink-faint); width:16px; text-align:right;}
+
+.ph-kb-overlay{
+  position:absolute; left:0; right:0; bottom:0; z-index:60; display:none;
+}
+.ph-kb-overlay.is-shown{display:block;}
+.ph-kb-field{
+  background:var(--paper-raised); border-top:1px solid var(--line); padding:10px 14px; display:flex; align-items:center; gap:8px;
+}
+.ph-kb-field input{
+  flex:1; border:1px solid var(--line-strong); border-radius:18px; padding:9px 13px; font-size:16px; font-family:var(--sans);
+  background:var(--paper);
+}
+.ph-kb-send{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;border:none;font-size:14px;flex:0 0 auto;}
+.ph-keyboard{
+  background:#D3D0C6; padding:8px 6px calc(8px + env(safe-area-inset-bottom,0px));
+  display:grid; grid-template-columns:repeat(10,1fr); gap:5px;
+}
+.ph-key{background:#fff; border-radius:5px; height:38px; box-shadow:0 1px 0 rgba(0,0,0,.15);}
+
+/* Mobile drawers reused for Version Compare and Chapter Planning — same
+   full-screen slide-in as the Chapters drawer, so both stack vertically
+   by construction and never squeeze a two-column layout onto the phone. */
+.ph-drawer-body .ph-stack-block{margin-bottom:20px;}
+.ph-drawer-body .ph-stack-label{
+  font-size:10px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:8px;
+}
+.ph-diff-block{
+  border:1px solid var(--line); border-radius:var(--radius-m); padding:13px 14px; font-size:14.5px; line-height:1.65; color:var(--ink);
+  margin-bottom:12px;
+}
+.ph-diff-nav{display:flex; align-items:center; justify-content:space-between; margin-top:10px; font-size:12px; color:var(--ink-faint);}
+.ph-diff-nav button{border:1px solid var(--line-strong); background:var(--paper); border-radius:16px; padding:5px 12px; font-size:12px; font-weight:600; color:var(--ink-soft);}
+
+/* ============================================================
+   VERSION HISTORY
+   ============================================================ */
+.version-list{display:flex; flex-direction:column; gap:0; margin-bottom:4px;}
+.version-card{display:flex; align-items:flex-start; gap:13px; padding:17px 4px; border-bottom:1px solid var(--line);}
+.version-card:last-child{border-bottom:none;}
+.version-dot{width:8px;height:8px;border-radius:50%;background:var(--line-strong); margin-top:7px; flex:0 0 auto;}
+.version-card.is-current .version-dot{background:var(--gold);}
+.version-body{flex:1; min-width:0;}
+.version-name-row{display:flex; align-items:baseline; gap:9px; flex-wrap:wrap;}
+.version-name{font-family:var(--display); font-size:15.5px; font-weight:600;}
+.version-current-tag{
+  font-size:10px; font-weight:800; letter-spacing:.06em; text-transform:uppercase; color:var(--gold-strong);
+  background:var(--gold-soft); padding:2px 8px; border-radius:20px;
+}
+.version-meta{font-size:12px; color:var(--ink-faint); margin-top:3px; font-variant-numeric:tabular-nums;}
+.version-note{font-size:12.5px; color:var(--ink-soft); margin-top:7px; line-height:1.5;}
+.version-actions{display:flex; gap:15px; margin-top:10px; flex-wrap:wrap;}
+.version-action{font-size:12px; font-weight:700; color:var(--ink-faint); cursor:pointer; background:none; border:none; padding:0; font-family:var(--sans);}
+.version-action:hover{color:var(--accent-strong);}
+.version-action.primary{color:var(--accent-strong);}
+.version-action[disabled]{opacity:.4; cursor:default;}
+.version-action[disabled]:hover{color:var(--ink-faint);}
+
+.compare-panel{display:none; margin-top:26px; padding-top:24px; border-top:1px solid var(--line);}
+.compare-panel.is-shown{display:block;}
+.compare-head{display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:16px;}
+.compare-title{font-family:var(--display); font-size:16px;}
+.compare-title span{color:var(--ink-faint); font-family:var(--sans); font-size:12.5px; font-weight:600;}
+.struct-change-list{border:1px solid var(--line); border-radius:var(--radius-m); overflow:hidden; margin-bottom:18px;}
+.struct-change-row{display:flex; align-items:center; gap:11px; padding:11px 14px; border-bottom:1px solid var(--line); font-size:13px; color:var(--ink);}
+.struct-change-row:last-child{border-bottom:none;}
+.struct-change-tag{font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; padding:2px 9px; border-radius:20px; flex:0 0 auto;}
+.struct-change-tag.added{background:var(--gold-soft); color:var(--gold-strong);}
+.struct-change-tag.changed{background:var(--accent-soft); color:var(--accent-strong);}
+.struct-change-tag.renamed{background:var(--pink); color:var(--accent-strong);}
+.diff-cols{display:grid; grid-template-columns:1fr 1fr; gap:18px;}
+.diff-col{border:1px solid var(--line); border-radius:var(--radius-m); padding:15px 17px; font-family:var(--sans); font-size:13.5px; line-height:1.7; color:var(--ink);}
+.diff-col-label{font-size:10.5px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:9px;}
+.diff-removed{background:var(--coral-soft); color:var(--accent-strong); text-decoration:line-through; padding:0 2px; border-radius:2px;}
+.diff-added{background:var(--gold-soft); color:var(--ink); padding:0 2px; border-radius:2px;}
+
+.modal-overlay{
+  position:fixed; inset:0; background:rgba(20,18,12,.42); display:none; align-items:center; justify-content:center;
+  z-index:900; padding:20px;
+}
+.modal-overlay.is-shown{display:flex;}
+.modal-card{background:var(--paper-raised); border-radius:var(--radius-l); box-shadow:var(--shadow-lg); max-width:420px; width:100%; padding:28px 26px 24px;}
+.modal-title{font-size:18px; margin-bottom:10px;}
+.modal-title b{color:var(--accent-strong);}
+.modal-body{font-size:13.5px; line-height:1.6; color:var(--ink-soft); margin-bottom:22px;}
+.modal-body b{color:var(--ink);}
+.modal-actions{display:flex; justify-content:flex-end; gap:10px;}
+
+/* ============================================================
+   PLAN — plot & outline development
+   ============================================================ */
+.plan-substep{display:none;}
+.plan-substep.is-shown{display:block;}
+.plan-crumb{font-size:12px; font-weight:600; color:var(--ink-faint); margin-bottom:14px; display:flex; align-items:center; gap:6px;}
+.plan-crumb .cur{color:var(--accent-strong);}
+.plan-entry-grid{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:6px;}
+.plan-entry-card{
+  border:1.5px solid var(--line-strong); border-radius:var(--radius-m); padding:22px 20px; cursor:pointer;
+  background:var(--paper); transition:border-color .15s, background .15s;
+}
+.plan-entry-card:hover{border-color:var(--accent); background:var(--accent-soft);}
+.plan-entry-icon{font-size:19px; margin-bottom:12px; color:var(--accent-strong);}
+.plan-entry-title{font-family:var(--display); font-size:17px; margin-bottom:7px;}
+.plan-entry-desc{font-size:12.5px; color:var(--ink-soft); line-height:1.55;}
+
+.recap-block{
+  font-size:13.5px; line-height:1.6; color:var(--ink-soft); padding:15px 17px; margin-bottom:22px;
+  background:var(--paper-sunken); border-radius:var(--radius-m); border-left:3px solid var(--accent);
+}
+.recap-block b{color:var(--ink); font-weight:600;}
+.recap-label{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-strong); margin-bottom:8px; display:block;}
+
+.plan-category{
+  font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--gold-strong);
+  margin-bottom:10px;
+}
+
+.established-group-label{
+  font-size:10px; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--ink-faint);
+  margin:16px 0 6px; padding-top:12px; border-top:1px dashed var(--line);
+}
+.established-group-label:first-child{margin-top:0; padding-top:0; border-top:none;}
+
+.plot-option-list{display:flex; flex-direction:column; gap:14px; margin-top:6px; margin-bottom:8px;}
+.plot-option-card{
+  border:1.5px solid var(--line-strong); border-radius:var(--radius-m); padding:19px 21px; background:var(--paper);
+  transition:border-color .15s, background .15s;
+}
+.plot-option-card.is-selected{border-color:var(--accent); background:var(--accent-soft);}
+.plot-option-letter{font-size:10.5px; font-weight:800; letter-spacing:.08em; color:var(--ink-faint); margin-bottom:7px;}
+.plot-option-card.is-selected .plot-option-letter{color:var(--accent-strong);}
+.plot-option-title{font-family:var(--display); font-size:16.5px; margin-bottom:11px;}
+.plot-option-field{font-size:12.5px; line-height:1.6; margin-bottom:7px; color:var(--ink-soft);}
+.plot-option-field b{color:var(--ink); font-weight:700;}
+.plot-option-actions{display:flex; gap:8px; margin-top:13px;}
+
+.outline-act{margin-bottom:20px;}
+.outline-act-title{font-family:var(--display); font-size:15.5px; margin-bottom:10px; color:var(--accent-strong);}
+.outline-chapter{margin:0 0 8px 2px; padding:9px 0 9px 14px; border-left:2px solid var(--line-strong); font-size:13px;}
+.outline-chapter b{display:block; font-size:13.5px; color:var(--ink); margin-bottom:2px; font-weight:700;}
+.outline-chapter span{color:var(--ink-soft); font-size:12.5px; line-height:1.5;}
+
+.chapter-outline-block{margin-bottom:22px;}
+.co-label{font-size:10.5px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-faint); margin-bottom:7px;}
+.co-text{font-size:13.5px; line-height:1.6; color:var(--ink);}
+.co-scene{border-left:2px solid var(--accent); padding-left:16px; margin:16px 0;}
+.co-scene-title{font-family:var(--display); font-size:15.5px; margin-bottom:10px;}
+.co-scene ul{margin:6px 0 0; padding-left:18px;}
+.co-scene li{font-size:13px; line-height:1.6; color:var(--ink-soft); margin-bottom:4px;}
+
+.beat-list{display:flex; flex-direction:column; gap:0; margin-bottom:6px;}
+.beat-row{display:flex; align-items:flex-start; gap:12px; padding:11px 4px; border-bottom:1px solid var(--line);}
+.beat-row:last-child{border-bottom:none;}
+.beat-num{font-family:var(--sans); font-variant-numeric:tabular-nums; font-size:12px; color:var(--ink-faint); width:16px; flex:0 0 auto; padding-top:3px;}
+.beat-text{flex:1; font-size:13.5px; line-height:1.55; color:var(--ink);}
+.beat-controls{display:flex; gap:4px; flex:0 0 auto; flex-wrap:wrap;}
+.beat-icon-btn{
+  width:26px;height:26px;border-radius:6px;border:1px solid var(--line-strong); background:var(--paper); color:var(--ink-faint);
+  font-size:11px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+}
+.beat-icon-btn:hover{background:var(--paper-sunken); color:var(--ink-soft);}
+.beat-add-row{text-align:center; margin-top:12px;}
+
+/* misc */
+.two-col-fields{display:grid; grid-template-columns:1fr 1fr; gap:16px;}
+.review-jump-note{
+  max-width:640px; margin:0 auto 18px; font-size:12.5px; color:var(--ink-faint); background:var(--paper-sunken);
+  border-radius:var(--radius-m); padding:10px 14px; display:flex; align-items:center; gap:8px;
+}
+
+@media (max-width: 980px){
+  .app-shell{grid-template-columns:1fr;}
+  .rail{display:none;}
+  .manuscript-col{padding:24px 20px 60px;}
+}
+@media (max-width: 640px){
+  .plan-entry-grid, .diff-cols{grid-template-columns:1fr;}
+}
+
+/* ============================================================
+   ACTUAL MOBILE VIEW — the real responsive web app, at true
+   width, with no device illustration. This is what runs when the
+   URL is opened directly on a phone: width:100%, no max-width cap,
+   no notch/home-indicator graphics — real env(safe-area-inset-*)
+   instead. The phone-framed screen elsewhere stays a presentation
+   mockup only; this is the screen to judge.
+   ============================================================ */
+.mweb-toolbar{
+  position:sticky; top:41px; z-index:400;
+  display:flex; gap:6px; padding:9px 12px; background:var(--paper-sunken); border-bottom:1px solid var(--line);
+  overflow-x:auto; scrollbar-width:none;
+}
+.mweb-toolbar::-webkit-scrollbar{display:none;}
+.mweb-state-btn{
+  appearance:none; border:1px solid var(--line-strong); background:var(--paper); color:var(--ink-soft);
+  font-family:var(--sans); font-size:12px; font-weight:600; padding:6px 12px; border-radius:20px; cursor:pointer; white-space:nowrap;
+}
+.mweb-state-btn.is-active{background:var(--accent); border-color:var(--accent); color:#fff;}
+.mweb-hint{
+  margin:0; padding:10px 16px; font-size:12px; line-height:1.5; color:var(--ink-faint); background:var(--paper);
+  border-bottom:1px solid var(--line);
+}
+.mweb{
+  width:100%; background:var(--paper); min-height:100dvh; display:flex; flex-direction:column; position:relative; overflow-x:hidden;
+}
+.mweb .ph-topbar{padding-top:max(14px, env(safe-area-inset-top)); padding-left:max(16px, env(safe-area-inset-left)); padding-right:max(16px, env(safe-area-inset-right));}
+.mweb .ph-body{padding-left:max(18px, env(safe-area-inset-left)); padding-right:max(18px, env(safe-area-inset-right));}
+.mweb .ph-tabbar{padding-left:env(safe-area-inset-left); padding-right:env(safe-area-inset-right);}
+.mweb .ph-sheet{padding-left:max(18px, env(safe-area-inset-left)); padding-right:max(18px, env(safe-area-inset-right));}
+.mweb .ph-drawer-head{padding-top:max(14px, env(safe-area-inset-top));}
+.mweb-byc-card{margin-bottom:16px;}
+.mweb-focus-note{
+  margin-top:10px; font-size:12px; color:var(--ink-faint); background:var(--paper-sunken); border-radius:var(--radius-s);
+  padding:9px 11px; display:flex; align-items:center; gap:7px;
+}
+.mweb .stage-title{font-size:19px;}
+/* Every real form field and AI answer field on the actual mobile page is
+   16px minimum — no exceptions, regardless of what its desktop-width
+   class defaults to. This is the one hard rule from the brief that a
+   generic ".mweb *" font tweak could too easily violate by accident, so
+   it's pinned explicitly rather than left to inheritance. */
+.mweb textarea, .mweb input{font-size:16px;}
+</style>
+
+<!-- ============================================================
+     PROTOTYPE NAV BAR
+     ============================================================ -->
+<div class="proto-bar">
+  <span class="proto-label">Prototype</span>
+  <button class="proto-tab is-active" data-screen="desktop">Desktop workspace</button>
+  <button class="proto-tab" data-screen="mobile">Actual Mobile View</button>
+  <button class="proto-tab" data-screen="iphone">iPhone (device mockup)</button>
+  <button class="proto-tab" data-screen="develop">Develop This</button>
+  <button class="proto-tab" data-screen="fix">Fix With Me</button>
+  <button class="proto-tab" data-screen="setting">Setting Builder</button>
+  <button class="proto-tab" data-screen="import">Manuscript Import</button>
+  <button class="proto-tab" data-screen="review">Story Canon Review</button>
+  <button class="proto-tab" data-screen="versions">Version History</button>
+  <button class="proto-tab" data-screen="plan">Plan</button>
+</div>
+
+<!-- ============================================================
+     SCREEN 1 — DESKTOP WORKSPACE
+     ============================================================ -->
+<section class="screen is-active" id="screen-desktop">
+  <div class="app-shell">
+
+    <!-- LEFT RAIL -->
+    <nav class="rail rail-left">
+      <div class="brand">
+        <span class="brand-mark">AWAKENED</span>
+        <span class="brand-sub">Book 1</span>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-heading">Manuscript</div>
+        <div class="chapter-tree" id="chapterTree">
+          <!-- populated by JS -->
+        </div>
+      </div>
+
+      <div class="nav-group">
+        <div class="nav-heading">Story Canon</div>
+        <div class="nav-link"><span class="dot"></span> Characters</div>
+        <div class="nav-link"><span class="dot"></span> Settings</div>
+        <div class="nav-link"><span class="dot"></span> Relationships</div>
+        <div class="nav-link"><span class="dot"></span> Story Threads</div>
+        <div class="nav-link"><span class="dot"></span> Timeline</div>
+      </div>
+    </nav>
+
+    <!-- CENTER MANUSCRIPT -->
+    <main class="manuscript-col">
+      <div class="ms-header">
+        <h1 class="ms-chapter-title">Chapter 20 — Next Steps</h1>
+      </div>
+
+      <!-- BEFORE YOU CONTINUE -->
+      <div class="byc-card" id="bycCard">
+        <div class="byc-collapsed" id="bycToggle">
+          <span class="byc-icon">◆</span>
+          <span class="byc-collapsed-text"><b>Before You Continue</b> — Timothy just prayed over Ashley and sensed something about a brother no one's mentioned. Tap to pick up the thread.</span>
+          <span class="byc-chevron">▾</span>
+        </div>
+        <div class="byc-body">
+          <div class="byc-recap">
+            <b>Last time:</b> Daniella and Timothy debriefed the dream workshop over dinner at their usual diner. While praying for Ashley, Timothy sensed something about a brother Ashley has never mentioned. Daniella went home, prayed about the prophetic-group invitation, and felt God release her to go.
+          </div>
+          <p class="byc-question">What do you want to happen next?</p>
+          <textarea class="byc-input" placeholder="Stay with Timothy driving home, cut back to Daniella, jump ahead to the meeting…">Stay with Timothy on the drive home — I want to sit in his POV a little longer before we jump ahead.</textarea>
+          <div class="byc-followup">One more thing, if it's useful — <b>are we staying in Timothy's point of view for this whole scene, or cutting back to Daniella before it ends?</b></div>
+          <div class="byc-actions">
+            <button class="btn btn-primary btn-sm">Use this — take me to the page</button>
+            <button class="btn btn-ghost btn-sm" id="bycSkip">Skip, I know where I'm going</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="prev-section-fade">
+        <span class="prev-section-label">Previous section — "What Did You Mean About Her Brother?"</span>
+        “And Daniella,” Timothy said gently, “don't let concern become fear. God showed you Ashley before she was saved. He answered your prayer then. He's not going to stop being faithful now.” … She would go to the meeting. And she would go in faith.
+      </div>
+
+      <div class="editor-toolbar">
+        <span class="status-pill draft">Draft</span>
+        <span class="sep"></span>
+        <span>412 words</span>
+        <span class="sep"></span>
+        <span class="status-pill saved-dot"><span class="dot"></span> Saved 12s ago</span>
+        <span class="sep"></span>
+        <span>Section 3 of 3</span>
+      </div>
+
+      <div class="manuscript-text">
+        <p>Timothy drove home smiling as he replayed Daniella's words.</p>
+        <p><em>You have so much wisdom. It's because of what God has placed inside of you.</em></p>
+        <p>He had appreciated every compliment, even if he had not known exactly how to respond. Daniella had always been sincere, but lately she seemed more comfortable expressing how she felt about him.</p>
+        <p>He wanted her to know how he felt about her too. Sometimes he wanted to say more than he did.</p>
+        <p>Their relationship was beginning to feel more serious. They were no longer simply going on dates to see whether they liked each other. They already knew they did. They had become close friends, and they had already agreed they were dating with marriage in view.</p>
+        <p>Still, they had never discussed what the years between now and marriage might actually look like.</p>
+        <p class="cursor-line">As he continued driving, Timothy realized there were many things he had never asked her. What did she want to do after high school<span class="editor-caret"></span></p>
+      </div>
+    </main>
+
+    <!-- RIGHT AI RAIL -->
+    <aside class="rail rail-right">
+      <div class="ai-title">AI Editor</div>
+      <div class="ai-sub">Sitting beside you, not writing for you.</div>
+
+      <button class="ai-primary" data-tab="develop">
+        <div class="ai-primary-title">✎ Help Me Continue</div>
+        <div class="ai-primary-desc">Opens the Before You Continue card above — a quick recap and one question to orient the next page.</div>
+      </button>
+      <button class="ai-primary" data-tab="develop">
+        <div class="ai-primary-title">◆ Develop This</div>
+        <div class="ai-primary-desc">Give me a rough idea for a scene. I'll ask one question at a time until it's ready to write.</div>
+      </button>
+
+      <div class="ai-secondary-group">
+        <button class="ai-secondary" data-tab="setting"><span class="ico">▢</span> Describe This</button>
+        <button class="ai-secondary" data-hint="questionme"><span class="ico">?</span> Question Me About This</button>
+        <button class="ai-secondary" data-hint="possibilities"><span class="ico">✦</span> Give Me Possibilities</button>
+      </div>
+
+      <div class="ai-tertiary-group">
+        <button class="ai-tertiary" data-tab="fix">Review Section <span>›</span></button>
+        <button class="ai-tertiary" id="continuityBtn">Continuity Check <span>›</span></button>
+      </div>
+
+      <div class="ai-note" id="continuityNote">✓ No continuity issues found in this section. Timothy's timeline, Ashley's status, and the diner setting all check out against the Story Canon.</div>
+      <div class="ai-hint" id="genericHint"></div>
+
+      <div class="canon-legend">
+        <span class="chip chip-working">Working Note</span> saved, not yet settled<br>
+        <span class="chip chip-canon">Author Canon</span> confirmed by you<br>
+        <span class="chip chip-fact">Manuscript Fact</span> checked against the prose<br>
+        <span class="chip chip-suggestion">AI Suggestion</span> proposed, awaiting you
+      </div>
+    </aside>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 2 — DEVELOP THIS
+     ============================================================ -->
+<section class="screen" id="screen-develop">
+  <div class="stage">
+    <div class="stage-back"><span class="stage-back-link" data-back="desktop">← Back to the manuscript</span></div>
+    <div class="stage-card">
+      <div class="stage-eyebrow">Develop This</div>
+      <h2 class="stage-title">Let's think it through before you write it.</h2>
+      <p class="stage-desc">One question at a time. Nothing here becomes canon until you say so.</p>
+
+      <div class="seed-box"><span class="lbl">Your idea</span>“Daniella goes to the prophetic meeting with Selah.”</div>
+
+      <div class="editorial-thread" id="developThread">
+        <div class="editorial-note ai">
+          <span class="en-label">Editor asks</span>
+          <div class="en-text">Where is the meeting being held?</div>
+        </div>
+      </div>
+
+      <div class="develop-answer-row">
+        <textarea class="byc-input" id="developAnswer" placeholder="Type your answer…" rows="2">In the back area of an older church — a converted room off the fellowship hall.</textarea>
+      </div>
+      <div class="develop-actions">
+        <button class="btn btn-primary" id="developContinueBtn">Continue</button>
+        <button class="btn btn-ghost" id="developFinishBtn">Finish Interview</button>
+      </div>
+
+      <div class="established-box">
+        <div class="established-heading">What you've established</div>
+        <div id="establishedList">
+          <div class="established-item">
+            <div class="established-text">Selah came with Daniella — she's not going alone.</div>
+            <div class="established-toggle">
+              <button class="toggle-opt working is-active">Working Note</button>
+              <button class="toggle-opt canon">Author Canon</button>
+            </div>
+          </div>
+          <div class="established-item">
+            <div class="established-text">Daniella is unsure what to expect — cautious, still weighing whether this is fear or discernment.</div>
+            <div class="established-toggle">
+              <button class="toggle-opt working is-active">Working Note</button>
+              <button class="toggle-opt canon">Author Canon</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 3 — FIX WITH ME
+     ============================================================ -->
+<section class="screen" id="screen-fix">
+  <div class="stage">
+    <div class="stage-back"><span class="stage-back-link" data-back="desktop">← Back to the manuscript</span></div>
+    <div class="stage-card">
+      <span class="issue-flag">Possible Missing Reaction</span>
+      <h2 class="stage-title">Chapter 20, Section 1</h2>
+
+      <div class="fix-excerpt">
+        “I think God's calling me toward full-time ministry,” Timothy said. “Not someday — I mean actually starting to prepare, now.” He paused. “I already talked to my dad about seminary. He wants to meet with me next week.”
+        <br><br>
+        They finished eating, and Timothy paid the check.
+      </div>
+
+      <p class="fix-explain">Timothy tells Daniella something significant here, but the manuscript moves directly to the next action without showing how she receives it.</p>
+
+      <div class="fix-actions" id="fixActions">
+        <button class="btn" data-fix="question">Question Me</button>
+        <button class="btn" data-fix="edit">I'll Edit It</button>
+        <button class="btn" data-fix="ideas">Give Me Ideas</button>
+        <button class="btn btn-ghost" data-fix="ignore">Ignore</button>
+      </div>
+
+      <div class="fix-flow" id="fixQuestionFlow">
+        <div class="editorial-thread">
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">What does Daniella actually feel in this moment — surprised, proud, nervous about what it means for the two of them?</div>
+          </div>
+          <div class="editorial-note me">
+            <span class="en-label">You answered</span>
+            <div class="en-text">A little of all three, honestly — mostly caught off guard by how real it suddenly feels.</div>
+          </div>
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">Does she say something out loud, or does this stay internal for a beat first?</div>
+          </div>
+        </div>
+        <div class="develop-answer-row">
+          <textarea class="byc-input" rows="2">She needs a second before she can say anything — then asks him one real question instead of just congratulating him.</textarea>
+        </div>
+        <div class="develop-actions">
+          <button class="btn btn-primary" id="fixApplyBtn">Show me a version with this</button>
+        </div>
+      </div>
+
+      <div class="fix-result" id="fixResult">
+        <div class="established-heading" style="margin-bottom:10px;">Updated paragraph</div>
+        <div class="fix-excerpt" style="border-left-color:var(--good);">
+          “I think God's calling me toward full-time ministry,” Timothy said. “Not someday — I mean actually starting to prepare, now.” He paused. “I already talked to my dad about seminary. He wants to meet with me next week.”
+          <br><br>
+          <span class="fix-insert">Daniella's chest tightened — not with fear, but with the sudden weight of what his words might mean for both of their futures. She wanted to ask a dozen questions at once, but she let herself have just one.</span> “How do you feel about that?” she finally asked.
+          <br><br>
+          They finished eating, and Timothy paid the check.
+        </div>
+        <div class="develop-actions" style="border-top:none; padding-top:4px;">
+          <button class="btn btn-primary">Keep this version</button>
+          <button class="btn btn-ghost">Try another angle</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 4 — SETTING BUILDER
+     ============================================================ -->
+<section class="screen" id="screen-setting">
+  <div class="stage">
+    <div class="stage-back"><span class="stage-back-link" data-back="desktop">← Back to the manuscript</span></div>
+    <div class="stage-card">
+      <div class="stage-eyebrow">Setting Builder</div>
+      <h2 class="stage-title">A prophetic meeting, held in the back area of an older church.</h2>
+
+      <div class="idk-banner">✋ “I don't know what this place should look like.”</div>
+      <p class="stage-desc" style="margin-bottom:18px;">Here are three directions to react to — pick one, combine ideas, or start from scratch.</p>
+
+      <div class="concept-grid" id="conceptGrid">
+        <div class="concept-card" data-concept="a">
+          <div class="concept-letter">OPTION A</div>
+          <div class="concept-name">Converted Sunday-school room</div>
+          <div class="concept-desc">Small, a little worn, alphabet posters still on the walls under new purpose.</div>
+        </div>
+        <div class="concept-card" data-concept="b">
+          <div class="concept-letter">OPTION B</div>
+          <div class="concept-name">Old fellowship hall</div>
+          <div class="concept-desc">Bigger, folding tables pushed to the sides, the smell of old coffee and carpet.</div>
+        </div>
+        <div class="concept-card" data-concept="c">
+          <div class="concept-letter">OPTION C</div>
+          <div class="concept-name">Small prayer room</div>
+          <div class="concept-desc">Close, quiet, a few chairs in a circle — built for intimacy, not a crowd.</div>
+        </div>
+      </div>
+      <div class="concept-alt-row">
+        <span class="concept-alt-link" id="combineLink">Combine ideas</span>
+        <span class="concept-alt-link" id="scratchLink">Start from scratch instead</span>
+      </div>
+
+      <div class="sb-fields" id="sbFields">
+        <div class="sb-two-col">
+          <div class="sb-field"><label>Location</label><input value="Grace Fellowship Church — a converted Sunday-school room off the main fellowship hall"></div>
+          <div class="sb-field"><label>Time</label><input value="Saturday evening, just after sunset"></div>
+        </div>
+        <div class="sb-two-col">
+          <div class="sb-field"><label>Lighting</label><input value="Fluorescents swapped for a few warm lamps brought from home"></div>
+          <div class="sb-field"><label>Sound</label><input value="Low worship music from a phone speaker, chairs scraping on tile"></div>
+        </div>
+        <div class="sb-field"><label>Layout</label><textarea rows="2">Folding chairs pulled into a loose, uneven circle. Old alphabet posters still taped to the walls above the chalkboard rail — nobody's taken them down.</textarea></div>
+        <div class="sb-field"><label>Atmosphere</label><textarea rows="2">Unpolished but warm. Not performative — it feels like people who actually know each other, gathered somewhere slightly too small for them.</textarea></div>
+        <div class="sb-field"><label>Activity when Daniella arrives</label><textarea rows="2">A woman is already praying quietly over someone in the corner. A few others are talking in low voices, Bibles open on their laps.</textarea></div>
+        <div class="sb-field"><label>What Daniella notices</label><textarea rows="2">How ordinary the room looks for what's about to happen in it — and how at ease everyone else seems to be with that.</textarea></div>
+        <div class="sb-field"><label>Story-relevant details</label><textarea rows="2">This is the first time Daniella prays with people outside her own church covering. Whatever happens here needs to earn her trust before it earns her openness.</textarea></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 5 — IPHONE
+     ============================================================ -->
+<section class="screen" id="screen-iphone">
+  <div class="phone-stage">
+    <div class="phone-controls">
+      <div class="idk-banner" style="margin-bottom:18px;">✋ Presentation mockup only — not part of the app. See "Actual Mobile View" for the real, unframed page.</div>
+      <h3>iPhone writing experience</h3>
+      <p>The manuscript gets nearly the full screen. Chapters and Story Canon live behind taps, not permanent panels.</p>
+      <button class="btn" id="btnTapAI">Tap "AI" — open the bottom sheet</button>
+      <button class="btn" id="btnTapChapters">Tap "Chapters" — open the drawer</button>
+      <button class="btn" id="btnTapKeyboard">Show keyboard-open state</button>
+      <button class="btn" id="btnTapPlan">Chapter planning (mobile)</button>
+      <button class="btn" id="btnTapCompare">Compare versions (mobile)</button>
+      <button class="btn btn-ghost" id="btnResetPhone">Reset to writing view</button>
+      <ul>
+        <li>No horizontal scroll, anywhere</li>
+        <li>16px+ text in every input</li>
+        <li>Notch &amp; home-indicator safe areas respected</li>
+        <li>Active field stays visible above the keyboard</li>
+      </ul>
+    </div>
+
+    <div class="phone-frame">
+      <div class="phone-screen">
+        <div class="notch"></div>
+
+        <div class="ph-topbar">
+          <span class="ph-back">‹</span>
+          <span class="ph-chapter">Chapter 20</span>
+          <span class="ph-saved"><span class="dot"></span> Saved</span>
+        </div>
+
+        <div class="ph-body">
+          <div class="ph-byc"><span>◆</span> <span><b>Before You Continue</b> — Timothy just prayed over Ashley. Tap for a quick recap.</span></div>
+          <div class="ph-editor">
+            <p>Timothy drove home smiling as he replayed Daniella's words.</p>
+            <p><em>You have so much wisdom. It's because of what God has placed inside of you.</em></p>
+            <p>He wanted her to know how he felt about her too. Sometimes he wanted to say more than he did.</p>
+            <p>As he continued driving, Timothy realized there were many things he had never asked her<span class="editor-caret"></span></p>
+          </div>
+          <div class="ph-wordcount">412 words · Draft</div>
+        </div>
+
+        <div class="ph-tabbar">
+          <button class="ph-tab is-active"><span class="ic">✎</span>Write</button>
+          <button class="ph-tab" id="ph-tab-ai"><span class="ic">◆</span>AI</button>
+          <button class="ph-tab"><span class="ic">▤</span>Story</button>
+          <button class="ph-tab" id="ph-tab-chapters"><span class="ic">≡</span>Chapters</button>
+        </div>
+
+        <!-- AI bottom sheet -->
+        <div class="ph-sheet-backdrop" id="ph-ai-backdrop"></div>
+        <div class="ph-sheet" id="ph-ai-sheet">
+          <button class="ph-sheet-close" id="ph-ai-close">✕</button>
+          <div class="ph-sheet-handle"></div>
+          <div class="ph-sheet-title">AI Editor</div>
+          <div class="ph-sheet-sub">Chapter 20 — Section 3</div>
+          <div class="ph-sheet-item"><span class="ic">✎</span> Help Me Continue</div>
+          <div class="ph-sheet-item"><span class="ic">◆</span> Develop This</div>
+          <div class="ph-sheet-item"><span class="ic">▢</span> Describe This</div>
+          <div class="ph-sheet-item"><span class="ic">?</span> Question Me About This</div>
+          <div class="ph-sheet-item"><span class="ic">✦</span> Give Me Possibilities</div>
+          <div class="ph-sheet-item"><span class="ic">☰</span> Review Section</div>
+          <div class="ph-sheet-item"><span class="ic">✓</span> Continuity Check</div>
+        </div>
+
+        <!-- Chapters drawer -->
+        <div class="ph-drawer" id="ph-chapters-drawer">
+          <div class="ph-drawer-head">
+            <span class="ph-drawer-title">Chapters</span>
+            <span style="flex:1"></span>
+            <button class="ph-drawer-close" id="ph-drawer-close">✕</button>
+          </div>
+          <div class="ph-drawer-body" id="ph-drawer-list"></div>
+        </div>
+
+        <!-- Keyboard-open overlay -->
+        <div class="ph-kb-overlay" id="ph-kb-overlay">
+          <div class="ph-kb-field">
+            <input value="What did she want to do after high school" />
+            <button class="ph-kb-send">↑</button>
+          </div>
+          <div class="ph-keyboard" id="ph-keyboard-keys"></div>
+        </div>
+
+        <!-- Chapter Planning (mobile) -->
+        <div class="ph-drawer" id="ph-plan-drawer">
+          <div class="ph-drawer-head">
+            <span class="ph-drawer-title">Plan — Ch. 21</span>
+            <span style="flex:1"></span>
+            <button class="ph-drawer-close" id="ph-plan-close">✕</button>
+          </div>
+          <div class="ph-drawer-body">
+            <div class="ph-stack-block">
+              <div class="ph-stack-label">Recap</div>
+              <div class="ph-diff-block" style="font-size:14px;">Chapter 20 ended with Timothy realizing how much he still doesn't know about Daniella's plans after high school. Daniella has just committed to going to the prophetic meeting with Selah.</div>
+            </div>
+            <div class="ph-stack-block">
+              <div class="ph-stack-label">Editor asks</div>
+              <div class="ph-diff-block">Which relationship changes in this chapter — Daniella and Timothy, Daniella and Selah, or something with Ashley?</div>
+            </div>
+            <div class="ph-stack-block">
+              <div class="ph-stack-label">Beats — Scene 1</div>
+              <div class="beat-list" style="border-top:1px solid var(--line);">
+                <div class="beat-row"><span class="beat-num">1</span><span class="beat-text">Daniella and Selah find seats; the room is smaller and plainer than either expected.</span></div>
+                <div class="beat-row"><span class="beat-num">2</span><span class="beat-text">Someone is already praying quietly over another woman in the corner.</span></div>
+                <div class="beat-row"><span class="beat-num">3</span><span class="beat-text">Selah leans over and asks, quietly, if this is normal.</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Compare Versions (mobile) -->
+        <div class="ph-drawer" id="ph-compare-drawer">
+          <div class="ph-drawer-head">
+            <span class="ph-drawer-title">Compare</span>
+            <span style="flex:1"></span>
+            <button class="ph-drawer-close" id="ph-compare-close">✕</button>
+          </div>
+          <div class="ph-drawer-body">
+            <div class="ph-stack-block">
+              <div class="ph-stack-label">Draft 4 — Relationship Revision</div>
+              <div class="ph-diff-block">Timothy drove home <span class="diff-removed">quiet, replaying the conversation in his head.</span> He <span class="diff-removed">wasn't sure how to bring up what he was feeling.</span></div>
+            </div>
+            <div class="ph-stack-block">
+              <div class="ph-stack-label">Current Draft</div>
+              <div class="ph-diff-block">Timothy drove home <span class="diff-added">smiling as he replayed Daniella's words.</span> He wanted her to know how he felt about her too. <span class="diff-added">Sometimes he wanted to say more than he did.</span></div>
+            </div>
+            <div class="ph-diff-nav">
+              <span>Change 2 of 3</span>
+              <span><button id="phDiffPrev">‹ Prev</button> <button id="phDiffNext">Next ›</button></span>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN — ACTUAL MOBILE VIEW (no device frame; the real page)
+     ============================================================ -->
+<section class="screen" id="screen-mobile">
+  <div class="mweb-toolbar" id="mwebToolbar">
+    <button class="mweb-state-btn is-active" data-mweb="write">Writing</button>
+    <button class="mweb-state-btn" data-mweb="byc">Before You Continue</button>
+    <button class="mweb-state-btn" data-mweb="sheet">AI Sheet</button>
+    <button class="mweb-state-btn" data-mweb="interview">AI Interview</button>
+    <button class="mweb-state-btn" data-mweb="keyboard">Keyboard Field</button>
+    <button class="mweb-state-btn" data-mweb="chapters">Chapters</button>
+    <button class="mweb-state-btn" data-mweb="story">Story Canon</button>
+    <button class="mweb-state-btn" data-mweb="plan">Chapter Planning</button>
+    <button class="mweb-state-btn" data-mweb="fix">Fix With Me</button>
+    <button class="mweb-state-btn" data-mweb="compare">Compare</button>
+    <button class="mweb-state-btn" data-mweb="import">Import</button>
+  </div>
+  <p class="mweb-hint">This is the real page — width:100%, no fixed container, real <code>env(safe-area-inset-*)</code>, no illustrated device. It renders true width when opened on your iPhone; on a desktop browser, narrow the window to ~390–430px to preview it the same way. The buttons above are prototype-only controls for jumping between states — not part of the app.</p>
+
+  <div class="mweb">
+    <div class="ph-topbar">
+      <span class="ph-back">‹</span>
+      <span class="ph-chapter" id="mwebTopbarLabel">Chapter 20</span>
+      <span class="ph-saved"><span class="dot"></span> Saved</span>
+    </div>
+
+    <div class="ph-body" id="mwebBody">
+      <!-- WRITE (base) -->
+      <div class="mweb-state is-active" data-mweb-state="write">
+        <div class="ph-byc"><span>◆</span> <span><b>Before You Continue</b> — Timothy just prayed over Ashley. Tap for a quick recap.</span></div>
+        <div class="ph-editor">
+          <p>Timothy drove home smiling as he replayed Daniella's words.</p>
+          <p><em>You have so much wisdom. It's because of what God has placed inside of you.</em></p>
+          <p>He wanted her to know how he felt about her too. Sometimes he wanted to say more than he did.</p>
+          <p>As he continued driving, Timothy realized there were many things he had never asked her<span class="editor-caret"></span></p>
+        </div>
+        <div class="ph-wordcount">412 words · Draft</div>
+      </div>
+
+      <!-- BEFORE YOU CONTINUE, EXPANDED -->
+      <div class="mweb-state" data-mweb-state="byc" style="display:none;">
+        <div class="byc-card is-open mweb-byc-card">
+          <div class="byc-body" style="display:block; padding:14px 2px 0;">
+            <div class="byc-recap">
+              <b>Last time:</b> Daniella and Timothy debriefed the dream workshop over dinner. While praying for Ashley, Timothy sensed something about a brother Ashley has never mentioned.
+            </div>
+            <p class="byc-question">What do you want to happen next?</p>
+            <textarea class="byc-input" rows="3">Stay with Timothy on the drive home — I want to sit in his POV a little longer before we jump ahead.</textarea>
+            <div class="byc-actions">
+              <button class="btn btn-primary btn-sm">Use this</button>
+              <button class="btn btn-ghost btn-sm">Skip</button>
+            </div>
+          </div>
+        </div>
+        <div class="ph-editor">
+          <p>Timothy drove home smiling as he replayed Daniella's words.</p>
+        </div>
+      </div>
+
+      <!-- AI INTERVIEW (Develop This, as its own pushed page) -->
+      <div class="mweb-state" data-mweb-state="interview" style="display:none;">
+        <div class="seed-box" style="margin-bottom:20px;"><span class="lbl">Your idea</span>"Daniella goes to the prophetic meeting with Selah."</div>
+        <div class="editorial-thread" id="mwebInterviewThread">
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">Where is the meeting being held?</div>
+          </div>
+        </div>
+        <div class="develop-answer-row">
+          <textarea class="byc-input" id="mwebInterviewAnswer" rows="3">In the back area of an older church — a converted room off the fellowship hall.</textarea>
+        </div>
+        <div class="develop-actions">
+          <button class="btn btn-primary">Continue</button>
+          <button class="btn btn-ghost">Finish Interview</button>
+        </div>
+      </div>
+
+      <!-- KEYBOARD FIELD -->
+      <div class="mweb-state" data-mweb-state="keyboard" style="display:none;">
+        <div class="editorial-thread" style="margin-bottom:16px;">
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">How is Daniella feeling walking in — confident, cautious, something else?</div>
+          </div>
+        </div>
+        <textarea class="byc-input" id="mwebKeyboardField" rows="3" placeholder="Type your answer…"></textarea>
+        <div class="mweb-focus-note">↑ This is a real, focusable field. Tap it on your iPhone — your actual keyboard opens here, and the page scrolls it into view natively. Nothing about that is simulated.</div>
+      </div>
+
+      <!-- STORY CANON -->
+      <div class="mweb-state" data-mweb-state="story" style="display:none;">
+        <div class="ph-drawer-row"><span>◐</span>&nbsp; Characters</div>
+        <div class="ph-drawer-row"><span>▢</span>&nbsp; Settings</div>
+        <div class="ph-drawer-row"><span>◇</span>&nbsp; Relationships</div>
+        <div class="ph-drawer-row"><span>✦</span>&nbsp; Story Threads</div>
+        <div class="ph-drawer-row"><span>◷</span>&nbsp; Timeline</div>
+      </div>
+
+      <!-- CHAPTER PLANNING -->
+      <div class="mweb-state" data-mweb-state="plan" style="display:none;">
+        <div class="plan-category">Recap</div>
+        <div class="recap-block" style="margin-bottom:20px;">Chapter 20 ended with Timothy realizing how much he still doesn't know about Daniella's plans after high school. Daniella has just committed to going to the prophetic meeting with Selah.</div>
+        <div class="editorial-thread" style="margin-bottom:20px;">
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">Which relationship changes in this chapter — Daniella and Timothy, Daniella and Selah, or something with Ashley?</div>
+          </div>
+        </div>
+        <div class="established-heading">Beats — Scene 1</div>
+        <div class="beat-list">
+          <div class="beat-row"><span class="beat-num">1</span><span class="beat-text">Daniella and Selah find seats; the room is smaller and plainer than either expected.</span></div>
+          <div class="beat-row"><span class="beat-num">2</span><span class="beat-text">Someone is already praying quietly over another woman in the corner.</span></div>
+          <div class="beat-row"><span class="beat-num">3</span><span class="beat-text">Selah leans over and asks, quietly, if this is normal.</span></div>
+        </div>
+      </div>
+
+      <!-- FIX WITH ME -->
+      <div class="mweb-state" data-mweb-state="fix" style="display:none;">
+        <span class="issue-flag">Possible Missing Reaction</span>
+        <div class="fix-excerpt" style="margin-top:14px;">
+          "I think God's calling me toward full-time ministry," Timothy said. "Not someday — I mean actually starting to prepare, now."
+          <br><br>They finished eating, and Timothy paid the check.
+        </div>
+        <p class="fix-explain">Timothy tells Daniella something significant here, but the manuscript moves directly to the next action without showing how she receives it.</p>
+        <div class="fix-actions">
+          <button class="btn btn-sm">Question Me</button>
+          <button class="btn btn-sm">I'll Edit It</button>
+          <button class="btn btn-sm">Give Me Ideas</button>
+          <button class="btn btn-sm btn-ghost">Ignore</button>
+        </div>
+      </div>
+
+      <!-- COMPARE -->
+      <div class="mweb-state" data-mweb-state="compare" style="display:none;">
+        <div class="ph-stack-block">
+          <div class="ph-stack-label">Draft 4 — Relationship Revision</div>
+          <div class="ph-diff-block">Timothy drove home <span class="diff-removed">quiet, replaying the conversation in his head.</span></div>
+        </div>
+        <div class="ph-stack-block">
+          <div class="ph-stack-label">Current Draft</div>
+          <div class="ph-diff-block">Timothy drove home <span class="diff-added">smiling as he replayed Daniella's words.</span></div>
+        </div>
+        <div class="ph-diff-nav">
+          <span>Change 2 of 3</span>
+          <span><button>‹ Prev</button> <button>Next ›</button></span>
+        </div>
+      </div>
+
+      <!-- IMPORT (Chapter Detection — most layout-sensitive step) -->
+      <div class="mweb-state" data-mweb-state="import" style="display:none;">
+        <p class="detect-banner" style="font-size:14px;">We found <b>20 chapters.</b> Review before anything is created.</p>
+        <div class="chapter-detect-list" id="mwebDetectList" style="max-height:none;"></div>
+      </div>
+    </div>
+
+    <div class="ph-tabbar">
+      <button class="ph-tab is-active" data-mweb-tab="write"><span class="ic">✎</span>Write</button>
+      <button class="ph-tab" data-mweb-tab="sheet"><span class="ic">◆</span>AI</button>
+      <button class="ph-tab" data-mweb-tab="story"><span class="ic">▤</span>Story</button>
+      <button class="ph-tab" data-mweb-tab="chapters"><span class="ic">≡</span>Chapters</button>
+    </div>
+
+    <!-- AI bottom sheet — a real overlay, shown over the Write body -->
+    <div class="ph-sheet-backdrop" id="mwebSheetBackdrop"></div>
+    <div class="ph-sheet" id="mwebSheet">
+      <button class="ph-sheet-close" id="mwebSheetClose">✕</button>
+      <div class="ph-sheet-handle"></div>
+      <div class="ph-sheet-title">AI Editor</div>
+      <div class="ph-sheet-sub">Chapter 20 — Section 3</div>
+      <div class="ph-sheet-item"><span class="ic">✎</span> Help Me Continue</div>
+      <div class="ph-sheet-item"><span class="ic">◆</span> Develop This</div>
+      <div class="ph-sheet-item"><span class="ic">▢</span> Describe This</div>
+      <div class="ph-sheet-item"><span class="ic">?</span> Question Me About This</div>
+      <div class="ph-sheet-item"><span class="ic">✦</span> Give Me Possibilities</div>
+      <div class="ph-sheet-item"><span class="ic">☰</span> Review Section</div>
+      <div class="ph-sheet-item"><span class="ic">✓</span> Continuity Check</div>
+    </div>
+
+    <!-- Chapters — a real overlay, edge-to-edge on the actual viewport -->
+    <div class="ph-drawer" id="mwebChaptersDrawer">
+      <div class="ph-drawer-head">
+        <span class="ph-drawer-title">Chapters</span>
+        <span style="flex:1"></span>
+        <button class="ph-drawer-close" id="mwebChaptersClose">✕</button>
+      </div>
+      <div class="ph-drawer-body" id="mwebChaptersList"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 6 — MANUSCRIPT IMPORT
+     ============================================================ -->
+<section class="screen" id="screen-import">
+  <div class="stage">
+    <div class="stage-back"><span class="stage-back-link" data-back="desktop">← Back to the manuscript</span></div>
+
+    <div class="import-steps" id="importSteps">
+      <div class="import-step-dot is-current" data-step="1"></div>
+      <div class="import-step-dot" data-step="2"></div>
+      <div class="import-step-dot" data-step="3"></div>
+      <div class="import-step-dot" data-step="4"></div>
+      <div class="import-step-dot" data-step="5"></div>
+    </div>
+
+    <div class="stage-card">
+
+      <!-- STEP 1: UPLOAD -->
+      <div class="import-substep is-shown" id="import-step-1">
+        <div class="stage-eyebrow">Step 1 of 5 — Import</div>
+        <h2 class="stage-title">Bring in a manuscript you've already started.</h2>
+        <p class="stage-desc">Word documents only, for now. Nothing is analyzed until you approve the chapter breakdown.</p>
+        <div class="upload-well">
+          <div class="upload-icon">⇪</div>
+          <div style="font-size:13.5px; color:var(--ink-soft);">Drop a .docx file here, or click to choose one</div>
+        </div>
+        <div class="file-chip">
+          <div class="file-icon">DOC</div>
+          <div class="file-meta"><b>Awakened_Fictional_Dream_Book.docx</b><span>187 KB · uploaded just now</span></div>
+        </div>
+        <button class="btn btn-primary" data-import-next="2">Analyze Chapters</button>
+      </div>
+
+      <!-- STEP 2: CHAPTER DETECTION -->
+      <div class="import-substep" id="import-step-2">
+        <div class="stage-eyebrow">Step 2 of 5 — Chapter Detection</div>
+        <p class="detect-banner">We found <b>20 chapters.</b> Review the breakdown before anything is created.</p>
+        <div class="chapter-detect-list" id="chapterDetectList"></div>
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:12px; color:var(--ink-faint);">Tap ⋯ on any chapter to rename, merge, split, or move its boundary.</span>
+          <button class="btn btn-primary" data-import-next="3">Looks right — Import</button>
+        </div>
+      </div>
+
+      <!-- STEP 3: PROGRESS -->
+      <div class="import-substep" id="import-step-3">
+        <div class="stage-eyebrow">Step 3 of 5 — Importing</div>
+        <h2 class="stage-title">Importing AWAKENED…</h2>
+        <div class="progress-wrap">
+          <div class="progress-track"><div class="progress-fill"></div></div>
+          <div class="progress-label"><span>12 of 20 chapters</span><span>60%</span></div>
+        </div>
+        <div class="progress-sub"><span class="spinner"></span> Analyzing Chapter 12 — Growing Closer</div>
+        <div style="margin-top:30px;"><button class="btn btn-primary" data-import-next="4">Continue to review →</button></div>
+      </div>
+
+      <!-- STEP 4: STORY CANON PROPOSALS -->
+      <div class="import-substep" id="import-step-4">
+        <div class="stage-eyebrow">Step 4 of 5 — Story Canon Proposals</div>
+        <h2 class="stage-title">Here's what the read-through found.</h2>
+        <p class="stage-desc">Nothing becomes canon until you say so. Approve what's right, edit what's close, reject the rest.</p>
+
+        <div id="proposalGroups"></div>
+
+        <div style="margin-top:22px;"><button class="btn btn-primary" data-import-next="5">Finish import →</button></div>
+      </div>
+
+      <!-- STEP 5: FINISH -->
+      <div class="import-substep" id="import-step-5">
+        <div class="finish-wrap">
+          <div class="finish-check">✓</div>
+          <div class="stage-eyebrow" style="text-align:center;">Step 5 of 5 — Finish</div>
+          <h2 class="stage-title">AWAKENED is ready.</h2>
+          <p class="stage-desc">20 chapters imported. Your approved facts are already in the Story Canon — everything else is still waiting in the review queue whenever you're ready for it.</p>
+          <div class="finish-stats">
+            <div class="finish-stat"><b>20</b><span>Chapters</span></div>
+            <div class="finish-stat"><b>7</b><span>Characters</span></div>
+            <div class="finish-stat"><b>22</b><span>Pending review</span></div>
+          </div>
+          <button class="btn btn-primary" id="startWritingBtn" data-back="desktop">Start Writing →</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 7 — VERSION HISTORY
+     ============================================================ -->
+<section class="screen" id="screen-versions">
+  <div class="stage">
+    <div class="stage-back"><span class="stage-back-link" data-back="desktop">← Back to the manuscript</span></div>
+    <div class="stage-card" style="max-width:720px;">
+      <div class="stage-eyebrow">Version History</div>
+      <h2 class="stage-title">AWAKENED</h2>
+      <p class="stage-desc">Autosave protects every keystroke of your Current Draft. A saved version is a deliberate checkpoint — a full snapshot of the manuscript you can always come back to. Autosave never creates one of these on its own.</p>
+
+      <div class="version-list" id="versionList"></div>
+
+      <!-- COMPARE PANEL -->
+      <div class="compare-panel" id="comparePanel">
+        <div class="compare-head">
+          <div class="compare-title">Comparing <span id="compareFromLabel">Draft 4 — Relationship Revision</span> → <span style="color:var(--ink-faint); font-weight:600;">Current Draft</span></div>
+          <button class="btn btn-sm btn-ghost" id="compareCloseBtn">Close</button>
+        </div>
+
+        <div class="plan-category" style="margin-top:4px;">Structural changes</div>
+        <div class="struct-change-list">
+          <div class="struct-change-row"><span class="struct-change-tag added">Added</span> Chapter 18 "Open Door" — 1 new section added</div>
+          <div class="struct-change-row"><span class="struct-change-tag changed">Changed</span> Chapter 19 "The Sting of Sweetness" — 2 sections revised</div>
+          <div class="struct-change-row"><span class="struct-change-tag renamed">Renamed</span> Chapter 20 — "The Proposal" → "Next Steps"</div>
+        </div>
+
+        <button class="btn" id="showTextDiffBtn">View textual diff — Chapter 19</button>
+
+        <div class="diff-cols" id="textDiff" style="display:none; margin-top:18px;">
+          <div class="diff-col">
+            <div class="diff-col-label">Draft 4 — Relationship Revision</div>
+            <p>Timothy drove home <span class="diff-removed">quiet, replaying the conversation in his head.</span></p>
+            <p>He <span class="diff-removed">wasn't sure how to bring up what he was feeling.</span></p>
+          </div>
+          <div class="diff-col">
+            <div class="diff-col-label">Current Draft</div>
+            <p>Timothy drove home <span class="diff-added">smiling as he replayed Daniella's words.</span></p>
+            <p>He wanted her to know how he felt about her too. <span class="diff-added">Sometimes he wanted to say more than he did.</span></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- RESTORE CONFIRMATION -->
+  <div class="modal-overlay" id="restoreModalOverlay">
+    <div class="modal-card">
+      <h3 class="modal-title">Restore "<span id="restoreVersionName">Draft 3 — Completed Ending</span>"?</h3>
+      <p class="modal-body">We'll automatically save your <b>Current Draft</b> first, as <b>"Before restore — Aug 30, 2026."</b> Nothing you've written is lost — you can always come back to it. Saved versions themselves never change.</p>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" id="restoreCancelBtn">Cancel</button>
+        <button class="btn btn-primary" id="restoreConfirmBtn">Restore This Version</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     SCREEN 8 — PLAN (plot & outline development)
+     ============================================================ -->
+<section class="screen" id="screen-plan">
+  <div class="stage">
+    <div class="stage-back"><span class="stage-back-link" data-back="desktop">← Back to the manuscript</span></div>
+    <div class="stage-card" style="max-width:680px;">
+
+      <!-- START -->
+      <div class="plan-substep is-shown" id="plan-step-start">
+        <div class="stage-eyebrow">Plan</div>
+        <h2 class="stage-title">Decide what happens before you write it.</h2>
+        <p class="stage-desc">This is separate from the writing AI. Plan helps you decide what should happen — the writing AI helps you write it once you know.</p>
+        <div class="plan-entry-grid">
+          <div class="plan-entry-card" data-plan-start="newbook">
+            <div class="plan-entry-icon">✎</div>
+            <div class="plan-entry-title">Build My Story</div>
+            <div class="plan-entry-desc">Start an entirely new book — from one sentence, a character, a dream, or no developed plot at all.</div>
+          </div>
+          <div class="plan-entry-card" data-plan-start="chapter">
+            <div class="plan-entry-icon">▤</div>
+            <div class="plan-entry-title">Plan This Chapter</div>
+            <div class="plan-entry-desc">You've got AWAKENED going — figure out what needs to happen in Chapter 21 before you start writing it.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- NEW BOOK: INTERVIEW -->
+      <div class="plan-substep" id="plan-step-interview">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Build My Story</span></div>
+        <div class="stage-eyebrow">Guided Interview</div>
+        <h2 class="stage-title">Let's find the shape of this one.</h2>
+        <p class="stage-desc">One question at a time. Nothing here is locked in — you can always come back and change direction.</p>
+
+        <div class="seed-box"><span class="lbl">Where you started</span>“A teenage girl begins discovering that her dreams reveal things happening in the spiritual realm.”</div>
+
+        <div class="plan-category" id="planInterviewCategory">Main Character</div>
+        <div class="editorial-thread" id="planInterviewThread">
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">Who is the story primarily about?</div>
+          </div>
+        </div>
+        <div class="develop-answer-row">
+          <textarea class="byc-input" id="planInterviewAnswer" rows="2">A sixteen-year-old girl who's always had vivid dreams and has just started noticing they come true.</textarea>
+        </div>
+        <div class="develop-actions">
+          <button class="btn btn-primary" id="planInterviewContinueBtn">Continue</button>
+          <button class="btn btn-ghost" data-plan-go="possibilities">I'm not sure yet — show me some directions</button>
+        </div>
+
+        <div class="established-box">
+          <div class="established-heading">The story you've built</div>
+          <div id="planEstablishedList"></div>
+        </div>
+      </div>
+
+      <!-- PLOT POSSIBILITIES -->
+      <div class="plan-substep" id="plan-step-possibilities">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Plot Possibilities</span></div>
+        <div class="stage-eyebrow">Give Me Plot Possibilities</div>
+        <h2 class="stage-title">Here are three genuinely different directions.</h2>
+        <p class="stage-desc">Nothing becomes canon just because it's offered here. Choose one, combine ideas, or ask a question about any of them.</p>
+
+        <div class="plot-option-list" id="plotOptionList">
+          <div class="plot-option-card" data-plot="a">
+            <div class="plot-option-letter">OPTION A</div>
+            <div class="plot-option-title">Daniella initially hides the dreams</div>
+            <div class="plot-option-field"><b>Why it could work —</b> builds tension from isolation; the reader knows more than the people around her do.</div>
+            <div class="plot-option-field"><b>What it would change —</b> her arc becomes about the cost of secrecy, not just discovery.</div>
+            <div class="plot-option-field"><b>Possible conflict —</b> she has to actively lie or deflect people who are trying to help her.</div>
+            <div class="plot-option-field"><b>Character consequences —</b> risks reading as evasive rather than afraid, unless her reasons stay clear.</div>
+            <div class="plot-option-field"><b>Questions it creates —</b> who eventually finds out, and how?</div>
+            <div class="plot-option-actions">
+              <button class="btn btn-sm btn-primary" data-plot-choose="a">Choose This</button>
+              <button class="btn btn-sm btn-ghost" data-plot-ask="a">Ask Questions About This</button>
+            </div>
+          </div>
+          <div class="plot-option-card" data-plot="b">
+            <div class="plot-option-letter">OPTION B</div>
+            <div class="plot-option-title">Daniella tells someone immediately but isn't believed</div>
+            <div class="plot-option-field"><b>Why it could work —</b> external conflict from the very first dream, instead of waiting for one to build.</div>
+            <div class="plot-option-field"><b>What it would change —</b> the early chapters carry more relational friction, less internal rumination.</div>
+            <div class="plot-option-field"><b>Possible conflict —</b> whoever doubts her becomes a recurring pressure, not a one-scene moment.</div>
+            <div class="plot-option-field"><b>Character consequences —</b> she has to decide whether to keep insisting or go quiet — a second choice, not just one.</div>
+            <div class="plot-option-field"><b>Questions it creates —</b> what finally makes that person believe her, and when?</div>
+            <div class="plot-option-actions">
+              <button class="btn btn-sm btn-primary" data-plot-choose="b">Choose This</button>
+              <button class="btn btn-sm btn-ghost" data-plot-ask="b">Ask Questions About This</button>
+            </div>
+          </div>
+          <div class="plot-option-card" data-plot="c">
+            <div class="plot-option-letter">OPTION C</div>
+            <div class="plot-option-title">Someone else recognizes what's happening before Daniella does</div>
+            <div class="plot-option-field"><b>Why it could work —</b> lets a mentor or elder character carry early spiritual authority, and gives Daniella someone to grow toward.</div>
+            <div class="plot-option-field"><b>What it would change —</b> Daniella's arc becomes catch-up and ownership rather than discovery from zero.</div>
+            <div class="plot-option-field"><b>Possible conflict —</b> she may resist being told what she's experiencing before she's ready to own it herself.</div>
+            <div class="plot-option-field"><b>Character consequences —</b> risks sidelining her agency in her own story if that character explains too much, too soon.</div>
+            <div class="plot-option-field"><b>Questions it creates —</b> how much does that person already know, and why haven't they said anything until now?</div>
+            <div class="plot-option-actions">
+              <button class="btn btn-sm btn-primary" data-plot-choose="c">Choose This</button>
+              <button class="btn btn-sm btn-ghost" data-plot-ask="c">Ask Questions About This</button>
+            </div>
+          </div>
+        </div>
+        <div class="concept-alt-row">
+          <span class="concept-alt-link" id="planCombineLink">Combine ideas</span>
+          <span class="concept-alt-link" id="planRejectLink">None of these — reject all</span>
+        </div>
+        <div class="develop-actions" style="border-top:none; margin-top:18px;">
+          <button class="btn btn-primary" data-plan-go="outline">Continue to Book Outline →</button>
+        </div>
+      </div>
+
+      <!-- BOOK OUTLINE -->
+      <div class="plan-substep" id="plan-step-outline">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Book Outline</span></div>
+        <div class="stage-eyebrow">Book Outline</div>
+        <h2 class="stage-title">The shape so far.</h2>
+        <p class="stage-desc">Structure follows what the story needs — a three-act shape fits this one, but Plan won't impose it silently on a book that wants something else.</p>
+
+        <div class="outline-act">
+          <div class="outline-act-title">Act One — Discovering the Gift</div>
+          <div class="outline-chapter"><b>Ch. 1 — The Dream</b><span>Daniella has the first dream vivid enough that she can't dismiss it as ordinary.</span></div>
+          <div class="outline-chapter"><b>Ch. 3 — The Pursuit</b><span>She starts quietly looking for someone who can tell her what dreams like this mean.</span></div>
+        </div>
+        <div class="outline-act">
+          <div class="outline-act-title">Act Two — Learning to Carry It</div>
+          <div class="outline-chapter"><b>Ch. 8 — Warring with Worship</b><span>The gift starts costing her something — she has to decide whether it's worth the discomfort.</span></div>
+          <div class="outline-chapter"><b>Ch. 12 — Growing Closer</b><span>Timothy becomes someone she can be honest with about what she's carrying.</span></div>
+        </div>
+        <div class="outline-act">
+          <div class="outline-act-title">Act Three — Stepping Into It</div>
+          <div class="outline-chapter"><b>Ch. 17 — The Workshop</b><span>She's taught, deliberately, instead of figuring it out alone.</span></div>
+          <div class="outline-chapter"><b>Ch. 20 — Next Steps</b><span>She stops asking whether this is really hers to carry, and starts asking what to do with it.</span></div>
+        </div>
+
+        <div class="develop-actions" style="border-top:none; margin-top:8px;">
+          <button class="btn btn-primary" data-plan-go="transition">This is enough to start writing →</button>
+          <button class="btn btn-ghost" data-plan-go="start">Start over</button>
+        </div>
+      </div>
+
+      <!-- PLAN THIS CHAPTER: RECAP -->
+      <div class="plan-substep" id="plan-step-recap">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Plan This Chapter</span></div>
+        <div class="stage-eyebrow">Chapter 21</div>
+        <h2 class="stage-title">Where we are now.</h2>
+
+        <div class="recap-block">
+          <span class="recap-label">Recap, pulled from the manuscript and Story Canon</span>
+          Chapter 20 ended with Timothy realizing how much he still doesn't know about Daniella's plans after high school. Daniella has just committed to going to the prophetic meeting with Selah. Ashley's unmentioned brother is still an open thread — Working Note only, not yet confirmed in a scene. Daniella and Timothy are dating with marriage in view, and their relationship is becoming more serious.
+        </div>
+
+        <p class="byc-question">What needs to change by the end of this chapter?</p>
+        <div class="develop-answer-row">
+          <textarea class="byc-input" id="planRecapAnswer" rows="2">Daniella should actually go to the meeting and have a real prophetic encounter — I want the reader to feel her gift growing.</textarea>
+        </div>
+        <div class="develop-actions">
+          <button class="btn btn-primary" data-plan-go="chapterInterview">Continue</button>
+          <button class="btn btn-ghost" data-plan-go="chapterInterview">I don't know yet — help me figure it out</button>
+        </div>
+      </div>
+
+      <!-- PLAN THIS CHAPTER: INTERVIEW -->
+      <div class="plan-substep" id="plan-step-chapterInterview">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Chapter 21 — Purpose</span></div>
+        <div class="plan-category">Chapter Purpose</div>
+        <div class="editorial-thread" id="chapterInterviewThread">
+          <div class="editorial-note ai">
+            <span class="en-label">Editor asks</span>
+            <div class="en-text">Which relationship changes in this chapter — Daniella and Timothy, Daniella and Selah, or something with Ashley?</div>
+          </div>
+        </div>
+        <div class="develop-answer-row">
+          <textarea class="byc-input" id="chapterInterviewAnswer" rows="2">Mostly Daniella and Selah — I want to show Selah still growing in her own faith, watching Daniella step into this.</textarea>
+        </div>
+        <div class="develop-actions">
+          <button class="btn btn-primary" id="chapterInterviewContinueBtn">Continue</button>
+          <button class="btn btn-ghost" data-plan-go="chapterOutline">Enough — generate the outline</button>
+        </div>
+      </div>
+
+      <!-- DETAILED CHAPTER OUTLINE -->
+      <div class="plan-substep" id="plan-step-chapterOutline">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Chapter 21 — Outline</span></div>
+        <div class="stage-eyebrow">Detailed Chapter Outline</div>
+        <h2 class="stage-title">Chapter 21 — draft outline</h2>
+        <p class="stage-desc">Editable, not manuscript prose. Nothing here writes itself into the chapter until you do.</p>
+
+        <div class="chapter-outline-block">
+          <div class="co-label">Purpose</div>
+          <div class="co-text">Daniella goes to the prophetic meeting with Selah and has a real encounter — the reader should feel her gift growing, not just hear about it.</div>
+        </div>
+        <div class="chapter-outline-block">
+          <div class="co-label">Opening state</div>
+          <div class="co-text">Daniella is nervous but resolved — she's already told God she'll go, and she means it.</div>
+        </div>
+
+        <div class="co-scene">
+          <div class="co-scene-title">Scene 1 — Daniella and Selah, arriving</div>
+          <div class="co-text"><b>Goal:</b> Daniella wants to walk in without letting her nerves show, for Selah's sake as much as her own.</div>
+          <div class="co-text" style="margin-top:8px;"><b>Setting:</b> The converted room off the fellowship hall — see Setting Builder.</div>
+          <ul>
+            <li>Daniella and Selah find seats; the room is smaller and plainer than either expected.</li>
+            <li>Someone is already praying quietly over another woman in the corner.</li>
+            <li>Selah leans over and asks, quietly, if this is normal.</li>
+          </ul>
+        </div>
+        <div class="co-scene">
+          <div class="co-scene-title">Scene 2 — the encounter</div>
+          <div class="co-text"><b>Goal:</b> Daniella wants to actually hear something — not perform, just receive.</div>
+          <ul>
+            <li>The leader invites people to share what they're sensing.</li>
+            <li>Daniella hesitates, then shares a picture she's been carrying since the drive over.</li>
+            <li>It lands — someone in the room confirms it means something to them.</li>
+          </ul>
+        </div>
+
+        <div class="chapter-outline-block">
+          <div class="co-label">Chapter end state</div>
+          <div class="co-text"><b>Daniella:</b> Steadier. Less afraid this is her imagination. <b>Selah:</b> Curious, a little unsettled, wants to talk about it on the drive home. <b>Relationship:</b> unchanged, but Selah has now seen this side of Daniella firsthand.</div>
+        </div>
+        <div class="chapter-outline-block">
+          <div class="co-label">New questions created</div>
+          <div class="co-text">Does the person Daniella spoke to reappear later? What does Selah do with what she just watched?</div>
+        </div>
+        <div class="chapter-outline-block">
+          <div class="co-label">Continuity notes</div>
+          <div class="co-text">Keep the room consistent with the Setting Builder profile — small, plain, folding chairs, alphabet posters still up.</div>
+        </div>
+
+        <div class="develop-actions" style="border-top:none;">
+          <button class="btn btn-primary" data-plan-go="beats">Break this into beats →</button>
+        </div>
+      </div>
+
+      <!-- BEAT-BY-BEAT -->
+      <div class="plan-substep" id="plan-step-beats">
+        <div class="plan-crumb"><span data-plan-back="start">‹ Plan</span> · <span class="cur">Chapter 21 — Beats</span></div>
+        <div class="stage-eyebrow">Beat-by-Beat</div>
+        <h2 class="stage-title">Scene 1, broken into beats.</h2>
+        <p class="stage-desc">A beat is a small movement, not necessarily a full scene. Reorder, expand, or question any of them.</p>
+
+        <div class="beat-list" id="beatList">
+          <!-- populated by JS -->
+        </div>
+        <div class="beat-add-row"><button class="btn btn-sm">+ Add Beat</button></div>
+
+        <div class="develop-actions" style="border-top:none; margin-top:20px;">
+          <button class="btn btn-primary" data-plan-go="transition">Outline approved →</button>
+        </div>
+      </div>
+
+      <!-- TRANSITION TO WRITING -->
+      <div class="plan-substep" id="plan-step-transition">
+        <div class="finish-wrap">
+          <div class="finish-check">✓</div>
+          <div class="stage-eyebrow" style="text-align:center;">Outline Approved</div>
+          <h2 class="stage-title" id="planTransitionTitle">Chapter 21 is ready to write.</h2>
+          <p class="stage-desc">The writing AI already knows this outline — the current beat, what led into it, and what's next. It's a guide, not a script; if the story moves while you write, you can update the outline at any point.</p>
+          <div class="finish-stats">
+            <div class="finish-stat"><b>2</b><span>Scenes planned</span></div>
+            <div class="finish-stat"><b>8</b><span>Beats</span></div>
+            <div class="finish-stat"><b>2</b><span>Open questions</span></div>
+          </div>
+          <button class="btn btn-primary" data-back="desktop">Start Writing →</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<script>
+/* ============================================================
+   DATA — real AWAKENED content
+   ============================================================ */
+const CHAPTERS = [
+  "The Dream","The Temptation","The Pursuit","Red Flags","Seeing is Believing",
+  "Eyes Opened","Preparing for Battle","Warring with Worship","Hope for Tomorrow","Godly Alliance",
+  "Prophetic Legacy","Growing Closer","Winning A Generation","The Connection","Battling Unbelief",
+  "Standing in the Gap","The Workshop","Open Door","The Sting of Sweetness","Next Steps"
+];
+
+const PROPOSALS = [
+  {
+    group: "Characters", icon:"◐", items: [
+      { name:"Timothy", excerpt:"“I already knew dream interpretation was real,” he said. “You and I have worked through dreams together… She really hears from God concerning dreams.”", fact:"Pastor's son, studying theology at Rock University. Mature in faith, dating Daniella with marriage in view.", exists:false },
+      { name:"Selah", excerpt:"Selah nodded, eyes wet. Daniella led her in the sinner's prayer. Selah rededicated her life to Jesus.", fact:"Daniella's best friend since school. Rededicated her life to Christ partway through the book; still growing.", exists:false },
+      { name:"Daniella Harmony Grace", excerpt:"appears in every chapter — detected as the manuscript's primary POV character", fact:"Already in your Story Canon.", exists:true },
+    ]
+  },
+  {
+    group: "Settings", icon:"▢", items: [
+      { name:"The diner near the church", excerpt:"“Nothing fancy. Just burgers, fries, booths, and enough noise around them that they could talk without feeling like everyone was listening.”", fact:"A regular, familiar spot — Daniella and Timothy's usual place to talk after church.", exists:false },
+    ]
+  },
+  {
+    group: "Relationships", icon:"◇", items: [
+      { name:"Daniella ↔ Timothy", excerpt:"“They had already agreed that they were dating with marriage in view.”", fact:"Dating, purity-focused, both actively discerning whether this leads to marriage.", exists:false },
+    ]
+  },
+  {
+    group: "Story Threads", icon:"✦", items: [
+      { name:"Ashley's discipleship journey", excerpt:"“I believe the Lord is showing that there is trouble in Ashley's family… Her brother?”", fact:"Working Note — Ashley may have an unmentioned brother, surfaced prophetically during Timothy's prayer. Not yet confirmed in a scene.", exists:false, note:true },
+    ]
+  },
+  {
+    group: "Canon Facts", icon:"❋", items: [
+      { name:"The Compromissum dream", excerpt:"“I know Compromissum is ‘compromise’ in Latin… the wind came—pressure meant to drive us back to the Compromissum Door.”", fact:"Represents a season of testing between compromise and obedience. Central recurring image.", exists:false },
+    ]
+  }
+];
+
+/* ============================================================
+   SCREEN NAVIGATION
+   ============================================================ */
+const screens = ["desktop","iphone","develop","fix","setting","import","versions","plan","mobile"];
+function showScreen(id, opts){
+  opts = opts || {};
+  // "review" isn't its own screen — it's the import flow parked on step 4
+  // (Story Canon proposal review), so it targets the same section as
+  // "import" but keeps its own tab highlighted and its own jump-to-step.
+  const targetId = id === 'review' ? 'import' : id;
+  screens.forEach(s => document.getElementById('screen-'+s).classList.remove('is-active'));
+  document.getElementById('screen-'+targetId).classList.add('is-active');
+  document.querySelectorAll('.proto-tab').forEach(t => t.classList.toggle('is-active', t.dataset.screen === id));
+  window.scrollTo({top:0, behavior:'instant' in window ? 'instant' : 'auto'});
+  if(id === 'review'){ goToImportStep(4); }
+  if(id === 'plan'){ goToPlanStep('start'); }
+  if(id === 'versions'){
+    document.getElementById('comparePanel')?.classList.remove('is-shown');
+    document.getElementById('restoreModalOverlay')?.classList.remove('is-shown');
+  }
+  if(id === 'mobile'){ switchMwebState('write'); }
+}
+document.querySelectorAll('.proto-tab[data-screen]').forEach(btn=>{
+  btn.addEventListener('click', ()=> showScreen(btn.dataset.screen));
+});
+document.querySelectorAll('[data-back]').forEach(el=>{
+  el.addEventListener('click', ()=> showScreen(el.dataset.back));
+});
+document.querySelectorAll('[data-tab]').forEach(el=>{
+  el.addEventListener('click', ()=> showScreen(el.dataset.tab));
+});
+
+/* ============================================================
+   CHAPTER TREE (left rail, desktop)
+   ============================================================ */
+const tree = document.getElementById('chapterTree');
+CHAPTERS.forEach((title, i)=>{
+  const num = i+1;
+  const row = document.createElement('div');
+  const isCurrent = num === 20;
+  row.className = 'chapter-row' + (isCurrent ? ' is-current' : '');
+  row.innerHTML = `<span class="chapter-num">${num}</span><span class="chapter-title">${title}</span><span class="chapter-status-dot ${isCurrent?'drafting':'complete'}"></span>`;
+  tree.appendChild(row);
+  if(isCurrent){
+    const list = document.createElement('div');
+    list.className = 'section-list';
+    list.innerHTML = `
+      <div class="section-row"><span>The Diner</span><span class="scene-tag">◆ scene</span></div>
+      <div class="section-row"><span>What Did You Mean About Her Brother?</span></div>
+      <div class="section-row is-current"><span>The Drive Home</span></div>
+    `;
+    tree.appendChild(list);
+  }
+});
+
+/* ============================================================
+   BEFORE YOU CONTINUE — expand/collapse
+   ============================================================ */
+document.getElementById('bycToggle').addEventListener('click', ()=>{
+  document.getElementById('bycCard').classList.toggle('is-open');
+});
+document.getElementById('bycSkip')?.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  document.getElementById('bycCard').classList.remove('is-open');
+});
+
+/* AI rail: hint + note interactions */
+const hintBox = document.getElementById('genericHint');
+const hints = {
+  questionme: 'Question Me About This opens once a passage is being reviewed — try it from <a data-jump="fix">Fix With Me</a>.',
+  possibilities: 'Give Me Possibilities offers 2–3 directions for a flagged moment — see it in <a data-jump="fix">Fix With Me</a>.'
+};
+document.querySelectorAll('[data-hint]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    hintBox.innerHTML = hints[btn.dataset.hint];
+    hintBox.classList.add('is-shown');
+    document.getElementById('continuityNote').classList.remove('is-shown');
+    const jump = hintBox.querySelector('[data-jump]');
+    if(jump) jump.addEventListener('click', ()=> showScreen(jump.dataset.jump));
+  });
+});
+document.getElementById('continuityBtn').addEventListener('click', ()=>{
+  hintBox.classList.remove('is-shown');
+  document.getElementById('continuityNote').classList.toggle('is-shown');
+});
+
+/* ============================================================
+   DEVELOP THIS interview
+   ============================================================ */
+/* Shared helper — appends one editorial-marginalia note (AI question or
+   author answer) to any interview thread. Used by Develop This and both
+   Plan interviews so the "no chat bubbles" treatment stays one pattern. */
+function addEditorialNote(threadEl, role, text){
+  const row = document.createElement('div');
+  row.className = 'editorial-note ' + (role === 'ai' ? 'ai' : 'me');
+  row.innerHTML = `<span class="en-label">${role === 'ai' ? 'Editor asks' : 'You answered'}</span><div class="en-text">${text}</div>`;
+  threadEl.appendChild(row);
+  threadEl.scrollTop = threadEl.scrollHeight;
+}
+
+const developThread = document.getElementById('developThread');
+/* Each step is the NEXT ai question plus the canned answer that pre-fills
+   the box for it — Continue submits whatever's currently in the box under
+   'me', then posts the next ai question and pre-fills its answer. */
+const developSteps = [
+  { q:'Got it. Is Selah going with her, or is Daniella walking in alone?', a:"Selah comes with her — she doesn't want to go alone." },
+  { q:'Makes sense. How is Daniella feeling walking in — confident, cautious, something else?', a:"Cautious — she's still weighing whether this is fear or discernment." }
+];
+let developIdx = 0;
+document.getElementById('developContinueBtn').addEventListener('click', ()=>{
+  const answerBox = document.getElementById('developAnswer');
+  if(answerBox.value.trim()){
+    addEditorialNote(developThread, 'me', answerBox.value.trim());
+  }
+  if(developIdx < developSteps.length){
+    const step = developSteps[developIdx];
+    addEditorialNote(developThread, 'ai', step.q);
+    answerBox.value = step.a;
+    developIdx++;
+  } else {
+    answerBox.value = '';
+    document.getElementById('developContinueBtn').textContent = 'Send';
+  }
+});
+document.getElementById('developFinishBtn').addEventListener('click', ()=>{
+  const list = document.getElementById('establishedList');
+  const item = document.createElement('div');
+  item.className = 'established-item';
+  item.innerHTML = `<div class="established-text">Meeting is held in an older church, in a converted room off the fellowship hall.</div>
+    <div class="established-toggle"><button class="toggle-opt working is-active">Working Note</button><button class="toggle-opt canon">Author Canon</button></div>`;
+  list.prepend(item);
+  bindToggles();
+});
+function bindToggles(){
+  document.querySelectorAll('.established-toggle').forEach(group=>{
+    group.querySelectorAll('.toggle-opt').forEach(btn=>{
+      btn.onclick = ()=>{
+        group.querySelectorAll('.toggle-opt').forEach(b=>b.classList.remove('is-active'));
+        btn.classList.add('is-active');
+      };
+    });
+  });
+}
+bindToggles();
+
+/* ============================================================
+   FIX WITH ME
+   ============================================================ */
+document.querySelectorAll('[data-fix]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const mode = btn.dataset.fix;
+    document.getElementById('fixResult').classList.remove('is-shown');
+    document.getElementById('fixQuestionFlow').classList.remove('is-shown');
+    if(mode === 'question'){
+      document.getElementById('fixQuestionFlow').classList.add('is-shown');
+    } else if(mode === 'edit'){
+      document.getElementById('fixResult').classList.add('is-shown');
+    } else if(mode === 'ideas'){
+      document.getElementById('fixQuestionFlow').classList.add('is-shown');
+    } else if(mode === 'ignore'){
+      document.getElementById('fixActions').style.opacity = '.4';
+      document.getElementById('fixActions').style.pointerEvents = 'none';
+    }
+  });
+});
+document.getElementById('fixApplyBtn').addEventListener('click', ()=>{
+  document.getElementById('fixResult').classList.add('is-shown');
+  document.getElementById('fixResult').scrollIntoView({behavior:'smooth', block:'nearest'});
+});
+
+/* ============================================================
+   SETTING BUILDER
+   ============================================================ */
+const conceptContent = {
+  a: { location:"Grace Fellowship Church — a converted Sunday-school room off the main fellowship hall", layout:"Folding chairs pulled into a loose, uneven circle. Old alphabet posters still taped to the walls above the chalkboard rail — nobody's taken them down." },
+  b: { location:"Grace Fellowship Church — the old fellowship hall itself, tables pushed to the walls", layout:"Long tables stacked along the sides, chairs in a wide loose ring near the center. The room still smells faintly of old coffee and carpet." },
+  c: { location:"Grace Fellowship Church — a small side prayer room, just off the sanctuary", layout:"Six or seven chairs pulled close in a tight circle. No tables. Built for closeness, not a crowd." }
+};
+document.querySelectorAll('.concept-card').forEach(card=>{
+  card.addEventListener('click', ()=>{
+    document.querySelectorAll('.concept-card').forEach(c=>c.classList.remove('is-selected'));
+    card.classList.add('is-selected');
+    const c = conceptContent[card.dataset.concept];
+    if(c){
+      document.querySelector('.sb-field input').value = c.location;
+      document.querySelectorAll('.sb-field textarea')[0].value = c.layout;
+    }
+    document.getElementById('sbFields').classList.add('is-shown');
+  });
+});
+document.getElementById('combineLink').addEventListener('click', ()=>{
+  document.querySelectorAll('.concept-card').forEach(c=>c.classList.add('is-selected'));
+  document.getElementById('sbFields').classList.add('is-shown');
+});
+document.getElementById('scratchLink').addEventListener('click', ()=>{
+  document.querySelectorAll('.concept-card').forEach(c=>c.classList.remove('is-selected'));
+  document.querySelectorAll('.sb-field input, .sb-field textarea').forEach(f=>f.value='');
+  document.getElementById('sbFields').classList.add('is-shown');
+});
+
+/* ============================================================
+   IMPORT FLOW
+   ============================================================ */
+function goToImportStep(n){
+  for(let i=1;i<=5;i++){
+    document.getElementById('import-step-'+i).classList.toggle('is-shown', i===n);
+  }
+  document.querySelectorAll('.import-step-dot').forEach(d=>{
+    const s = parseInt(d.dataset.step,10);
+    d.classList.toggle('is-done', s < n);
+    d.classList.toggle('is-current', s === n);
+  });
+}
+document.querySelectorAll('[data-import-next]').forEach(btn=>{
+  btn.addEventListener('click', ()=> goToImportStep(parseInt(btn.dataset.importNext,10)));
+});
+document.querySelectorAll('.import-step-dot').forEach(dot=>{
+  dot.addEventListener('click', ()=> goToImportStep(parseInt(dot.dataset.step,10)));
+});
+
+const detectList = document.getElementById('chapterDetectList');
+CHAPTERS.forEach((title,i)=>{
+  const row = document.createElement('div');
+  row.className = 'detect-row';
+  row.innerHTML = `<span class="detect-num">${i+1}</span>
+    <div class="detect-title-block"><b>${title}</b><span>${i===0?'"The wind howled through the empty streets as Daniella Harmony Grace found herself standing atop a towering building…"':'detected chapter boundary'}</span></div>
+    <button class="detect-menu-btn">⋯</button>`;
+  detectList.appendChild(row);
+});
+
+const proposalGroupsEl = document.getElementById('proposalGroups');
+PROPOSALS.forEach(group=>{
+  const wrap = document.createElement('div');
+  wrap.className = 'proposal-group';
+  wrap.innerHTML = `<div class="proposal-group-head">
+      <span class="proposal-group-title">${group.icon} ${group.group} <span class="proposal-count">${group.items.length}</span></span>
+      <span class="proposal-approve-all">Approve all obvious</span>
+    </div>`;
+  const cardsHost = document.createElement('div');
+  group.items.forEach(item=>{
+    const card = document.createElement('div');
+    card.className = 'proposal-card';
+    card.innerHTML = `
+      <div class="proposal-top">
+        <span class="proposal-name">${item.name}</span>
+        ${item.exists ? '<span class="exists-tag">Already exists — add new evidence</span>' : (item.note ? '<span class="exists-tag" style="color:var(--gold-strong);background:var(--gold-soft);">Working Note</span>' : '')}
+        <span class="proposal-decided-tag">✓ Handled</span>
+      </div>
+      <div class="proposal-found-label">What the AI found</div>
+      <div class="proposal-excerpt">“${item.excerpt}”</div>
+      <div class="proposal-fact">${item.fact}</div>
+      <div class="proposal-actions">
+        <button class="btn btn-sm btn-primary" data-decide="approve">${item.exists ? 'Add as new evidence' : 'Approve'}</button>
+        <button class="btn btn-sm" data-decide="edit">Edit</button>
+        <button class="btn btn-sm btn-ghost" data-decide="reject">Reject</button>
+      </div>
+    `;
+    card.querySelectorAll('[data-decide]').forEach(btn=>{
+      btn.addEventListener('click', ()=> card.classList.add('is-decided'));
+    });
+    cardsHost.appendChild(card);
+  });
+  wrap.querySelector('.proposal-approve-all').addEventListener('click', ()=>{
+    cardsHost.querySelectorAll('.proposal-card').forEach(c=>c.classList.add('is-decided'));
+  });
+  wrap.appendChild(cardsHost);
+  proposalGroupsEl.appendChild(wrap);
+});
+
+/* ============================================================
+   IPHONE SCREEN interactions
+   ============================================================ */
+function resetPhone(){
+  document.getElementById('ph-ai-sheet').classList.remove('is-shown');
+  document.getElementById('ph-ai-backdrop').classList.remove('is-shown');
+  document.getElementById('ph-chapters-drawer').classList.remove('is-shown');
+  document.getElementById('ph-kb-overlay').classList.remove('is-shown');
+  document.getElementById('ph-plan-drawer').classList.remove('is-shown');
+  document.getElementById('ph-compare-drawer').classList.remove('is-shown');
+}
+document.getElementById('btnTapAI').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-ai-sheet').classList.add('is-shown');
+  document.getElementById('ph-ai-backdrop').classList.add('is-shown');
+});
+document.getElementById('ph-tab-ai').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-ai-sheet').classList.add('is-shown');
+  document.getElementById('ph-ai-backdrop').classList.add('is-shown');
+});
+document.getElementById('ph-ai-close').addEventListener('click', resetPhone);
+document.getElementById('ph-ai-backdrop').addEventListener('click', resetPhone);
+document.querySelectorAll('.ph-sheet-item').forEach(item=>{
+  item.addEventListener('click', resetPhone);
+});
+
+const drawerList = document.getElementById('ph-drawer-list');
+CHAPTERS.forEach((title,i)=>{
+  const row = document.createElement('div');
+  const isCurrent = i+1 === 20;
+  row.className = 'ph-drawer-row' + (isCurrent ? ' is-current' : '');
+  row.innerHTML = `<span class="ph-drawer-num">${i+1}</span><span>${title}</span>`;
+  row.addEventListener('click', resetPhone);
+  drawerList.appendChild(row);
+});
+document.getElementById('btnTapChapters').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-chapters-drawer').classList.add('is-shown');
+});
+document.getElementById('ph-tab-chapters').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-chapters-drawer').classList.add('is-shown');
+});
+document.getElementById('ph-drawer-close').addEventListener('click', resetPhone);
+
+const kbKeys = document.getElementById('ph-keyboard-keys');
+for(let i=0;i<30;i++){ const k=document.createElement('div'); k.className='ph-key'; kbKeys.appendChild(k); }
+document.getElementById('btnTapKeyboard').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-kb-overlay').classList.add('is-shown');
+});
+document.getElementById('btnTapPlan').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-plan-drawer').classList.add('is-shown');
+});
+document.getElementById('ph-plan-close').addEventListener('click', resetPhone);
+document.getElementById('btnTapCompare').addEventListener('click', ()=>{
+  resetPhone();
+  document.getElementById('ph-compare-drawer').classList.add('is-shown');
+});
+document.getElementById('ph-compare-close').addEventListener('click', resetPhone);
+document.getElementById('btnResetPhone').addEventListener('click', resetPhone);
+
+/* ============================================================
+   VERSION HISTORY
+   ============================================================ */
+const VERSIONS = [
+  { id:'current', name:'Current Draft', words:42318, date:null, note:'Live — updates automatically as you write.', current:true },
+  { id:'v4', name:'Draft 4 — Relationship Revision', words:40991, date:'Aug 26', note:'Reworked the Timothy/Daniella arc across chapters 14–18.' },
+  { id:'v3', name:'Draft 3 — Completed Ending', words:38704, date:'Aug 18', note:'First full pass with the ending chapters drafted.' },
+  { id:'v2', name:'Draft 2 — Beta Reader Draft', words:35120, date:'Aug 3', note:'Sent out to beta readers.' },
+  { id:'v1', name:'Draft 1 — First Draft', words:29850, date:'Jul 12', note:'Original complete first draft.' }
+];
+const versionListEl = document.getElementById('versionList');
+VERSIONS.forEach(v=>{
+  const row = document.createElement('div');
+  row.className = 'version-card' + (v.current ? ' is-current' : '');
+  row.innerHTML = `
+    <span class="version-dot"></span>
+    <div class="version-body">
+      <div class="version-name-row">
+        <span class="version-name">${v.name}</span>
+        ${v.current ? '<span class="version-current-tag">Current</span>' : ''}
+      </div>
+      <div class="version-meta">${v.words.toLocaleString()} words${v.date ? ' · ' + v.date : ''}</div>
+      <div class="version-note">${v.note}</div>
+      <div class="version-actions">
+        ${v.current ? '' : `<button class="version-action primary" data-compare="${v.id}">Compare</button>`}
+        <button class="version-action">View</button>
+        <button class="version-action">Rename</button>
+        <button class="version-action">Add Note</button>
+        ${v.current ? '' : `<button class="version-action" data-restore="${v.id}">Restore</button>`}
+        <button class="version-action" ${v.current ? 'disabled' : ''}>Delete</button>
+      </div>
+    </div>`;
+  versionListEl.appendChild(row);
+});
+document.querySelectorAll('[data-compare]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const v = VERSIONS.find(x=>x.id===btn.dataset.compare);
+    document.getElementById('compareFromLabel').textContent = v.name;
+    document.getElementById('textDiff').style.display = 'none';
+    document.getElementById('showTextDiffBtn').textContent = 'View textual diff — Chapter 19';
+    const panel = document.getElementById('comparePanel');
+    panel.classList.add('is-shown');
+    panel.scrollIntoView({behavior:'smooth', block:'nearest'});
+  });
+});
+document.getElementById('compareCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('comparePanel').classList.remove('is-shown');
+});
+document.getElementById('showTextDiffBtn').addEventListener('click', ()=>{
+  const diff = document.getElementById('textDiff');
+  const shown = diff.style.display !== 'none';
+  diff.style.display = shown ? 'none' : 'grid';
+  document.getElementById('showTextDiffBtn').textContent = shown ? 'View textual diff — Chapter 19' : 'Hide textual diff';
+});
+document.querySelectorAll('[data-restore]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const v = VERSIONS.find(x=>x.id===btn.dataset.restore);
+    document.getElementById('restoreVersionName').textContent = v.name;
+    document.getElementById('restoreModalOverlay').classList.add('is-shown');
+  });
+});
+document.getElementById('restoreCancelBtn').addEventListener('click', ()=>{
+  document.getElementById('restoreModalOverlay').classList.remove('is-shown');
+});
+document.getElementById('restoreConfirmBtn').addEventListener('click', ()=>{
+  // Prototype-only: no real state change here. In production this snapshots
+  // the Current Draft first (labeled "Before restore — <date>"), then
+  // restores the selected version's content into the Current Draft. Saved
+  // versions themselves are never mutated.
+  document.getElementById('restoreModalOverlay').classList.remove('is-shown');
+});
+
+/* ============================================================
+   PLAN — plot & outline development
+   ============================================================ */
+function goToPlanStep(name){
+  document.querySelectorAll('.plan-substep').forEach(el=>el.classList.remove('is-shown'));
+  const target = document.getElementById('plan-step-'+name);
+  if(target) target.classList.add('is-shown');
+  window.scrollTo({top:0, behavior:'instant' in window ? 'instant' : 'auto'});
+}
+document.querySelectorAll('[data-plan-start]').forEach(card=>{
+  card.addEventListener('click', ()=>{
+    goToPlanStep(card.dataset.planStart === 'newbook' ? 'interview' : 'recap');
+  });
+});
+document.querySelectorAll('[data-plan-go]').forEach(btn=>{
+  btn.addEventListener('click', ()=> goToPlanStep(btn.dataset.planGo));
+});
+document.querySelectorAll('[data-plan-back]').forEach(el=>{
+  el.addEventListener('click', ()=> goToPlanStep(el.dataset.planBack));
+});
+
+/* Build My Story — guided interview, one question at a time, grouped by category */
+const planStorySteps = [
+  { cat:'Inciting Change', q:"What disrupts her normal life — what makes the dreams impossible to ignore?", a:"A dream the night before a classmate's accident — one she watched happen exactly as she'd seen it." },
+  { cat:'Conflict', q:"Once she suspects the dreams are real, what stands in her way most — other people, or something in herself?", a:"Mostly herself at first — she doesn't want it to be true, because she doesn't know what it would mean about her." },
+  { cat:'Stakes', q:"What does she stand to lose if she ignores what she's seeing?", a:"Someone gets hurt in a way she could have warned them about — and she has to live with having stayed silent." }
+];
+let planStoryIdx = 0;
+let planStoryCat = 'Main Character';
+const planEstablishedList = document.getElementById('planEstablishedList');
+function addPlanEstablished(cat, text){
+  const labels = planEstablishedList.querySelectorAll('.established-group-label');
+  const lastLabel = labels.length ? labels[labels.length-1] : null;
+  if(!lastLabel || lastLabel.dataset.cat !== cat){
+    const label = document.createElement('div');
+    label.className = 'established-group-label';
+    label.dataset.cat = cat;
+    label.textContent = cat;
+    planEstablishedList.appendChild(label);
+  }
+  const item = document.createElement('div');
+  item.className = 'established-item';
+  item.innerHTML = `<div class="established-text">${text}</div>
+    <div class="established-toggle"><button class="toggle-opt working is-active">Working Note</button><button class="toggle-opt canon">Author Canon</button></div>`;
+  planEstablishedList.appendChild(item);
+  bindToggles();
+}
+document.getElementById('planInterviewContinueBtn').addEventListener('click', ()=>{
+  const answerBox = document.getElementById('planInterviewAnswer');
+  const thread = document.getElementById('planInterviewThread');
+  if(answerBox.value.trim()){
+    addEditorialNote(thread, 'me', answerBox.value.trim());
+    addPlanEstablished(planStoryCat, answerBox.value.trim());
+  }
+  if(planStoryIdx < planStorySteps.length){
+    const step = planStorySteps[planStoryIdx];
+    planStoryCat = step.cat;
+    document.getElementById('planInterviewCategory').textContent = step.cat;
+    addEditorialNote(thread, 'ai', step.q);
+    answerBox.value = step.a;
+    planStoryIdx++;
+  } else {
+    answerBox.value = '';
+    document.getElementById('planInterviewContinueBtn').textContent = 'Send';
+  }
+});
+
+/* Plot Possibilities */
+document.querySelectorAll('[data-plot-choose]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.plot-option-card').forEach(c=>c.classList.remove('is-selected'));
+    btn.closest('.plot-option-card').classList.add('is-selected');
+  });
+});
+document.querySelectorAll('[data-plot-ask]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    btn.closest('.plot-option-card').classList.add('is-selected');
+  });
+});
+document.getElementById('planCombineLink').addEventListener('click', ()=>{
+  document.querySelectorAll('.plot-option-card').forEach(c=>c.classList.add('is-selected'));
+});
+document.getElementById('planRejectLink').addEventListener('click', ()=>{
+  document.querySelectorAll('.plot-option-card').forEach(c=>c.classList.remove('is-selected'));
+});
+
+/* Plan This Chapter — chapter-purpose interview */
+const chapterInterviewSteps = [
+  { q:"What does Daniella want walking into this meeting, specifically?", a:"To hear something real — not just watch other people experience it." },
+  { q:"Does anything get revealed to the reader that Daniella herself doesn't fully understand yet?", a:"Yes — a detail in what she shares will matter later, though she doesn't know that yet." }
+];
+let chapterInterviewIdx = 0;
+document.getElementById('chapterInterviewContinueBtn').addEventListener('click', ()=>{
+  const answerBox = document.getElementById('chapterInterviewAnswer');
+  const thread = document.getElementById('chapterInterviewThread');
+  if(answerBox.value.trim()) addEditorialNote(thread, 'me', answerBox.value.trim());
+  if(chapterInterviewIdx < chapterInterviewSteps.length){
+    const step = chapterInterviewSteps[chapterInterviewIdx];
+    addEditorialNote(thread, 'ai', step.q);
+    answerBox.value = step.a;
+    chapterInterviewIdx++;
+  } else {
+    answerBox.value = '';
+    document.getElementById('chapterInterviewContinueBtn').textContent = 'Generate the outline →';
+  }
+});
+
+/* Beat-by-Beat */
+const BEATS = [
+  "Daniella and Selah find seats; the room is smaller and plainer than either expected.",
+  "Someone is already praying quietly over another woman in the corner.",
+  "Selah leans over and asks, quietly, if this is normal.",
+  "Daniella admits she doesn't fully know either, but she doesn't feel afraid.",
+  "The leader welcomes the room and opens with a short prayer.",
+  "Daniella recognizes a picture in her mind she's been carrying since the drive over.",
+  "She hesitates, unsure whether it's really hers to share.",
+  "Scene ends with Daniella deciding she's going to say something when it's her turn."
+];
+const beatListEl = document.getElementById('beatList');
+BEATS.forEach((text,i)=>{
+  const row = document.createElement('div');
+  row.className = 'beat-row';
+  row.innerHTML = `<span class="beat-num">${i+1}</span><span class="beat-text">${text}</span>
+    <div class="beat-controls">
+      <button class="beat-icon-btn" title="Move up">↑</button>
+      <button class="beat-icon-btn" title="Move down">↓</button>
+      <button class="beat-icon-btn" title="Expand">⤢</button>
+      <button class="beat-icon-btn" title="Question Me About This">?</button>
+      <button class="beat-icon-btn" title="Delete">✕</button>
+    </div>`;
+  beatListEl.appendChild(row);
+});
+
+/* ============================================================
+   ACTUAL MOBILE VIEW — real page, no device frame. One shared
+   topbar/tabbar shell; the 11 requested states swap the body
+   content (or, for the two genuine overlays — the AI sheet and
+   the Chapters drawer — layer on top of the Write body, same as
+   they would in the real app).
+   ============================================================ */
+const MWEB_LABELS = {
+  write:'Chapter 20', byc:'Chapter 20', sheet:'Chapter 20',
+  interview:'Develop This', keyboard:'Develop This',
+  chapters:'Chapters', story:'Story Canon', plan:'Plan — Ch. 21',
+  fix:'Fix With Me', compare:'Compare', import:'Manuscript Import'
+};
+const MWEB_TABS = { write:'write', sheet:'sheet', story:'story', chapters:'chapters' };
+
+function closeMwebOverlays(){
+  document.getElementById('mwebSheet').classList.remove('is-shown');
+  document.getElementById('mwebSheetBackdrop').classList.remove('is-shown');
+  document.getElementById('mwebChaptersDrawer').classList.remove('is-shown');
+}
+function switchMwebState(name){
+  closeMwebOverlays();
+  document.querySelectorAll('.mweb-state').forEach(el=>{ el.style.display = 'none'; el.classList.remove('is-active'); });
+
+  const bodyState = (name === 'sheet' || name === 'chapters') ? 'write' : name;
+  const target = document.querySelector(`.mweb-state[data-mweb-state="${bodyState}"]`);
+  if(target){ target.style.display = 'block'; target.classList.add('is-active'); }
+
+  document.getElementById('mwebTopbarLabel').textContent = MWEB_LABELS[name] || 'Chapter 20';
+  document.querySelectorAll('.mweb-toolbar .mweb-state-btn').forEach(b=>{
+    b.classList.toggle('is-active', b.dataset.mweb === name);
+  });
+  document.querySelectorAll('.mweb .ph-tab').forEach(t=>{
+    t.classList.toggle('is-active', t.dataset.mwebTab === MWEB_TABS[name]);
+  });
+
+  if(name === 'sheet'){
+    document.getElementById('mwebSheet').classList.add('is-shown');
+    document.getElementById('mwebSheetBackdrop').classList.add('is-shown');
+  }
+  if(name === 'chapters'){
+    document.getElementById('mwebChaptersDrawer').classList.add('is-shown');
+  }
+  if(name === 'keyboard'){
+    setTimeout(()=> document.getElementById('mwebKeyboardField')?.focus(), 260);
+  }
+  window.scrollTo({top:0, behavior:'instant' in window ? 'instant' : 'auto'});
+}
+document.querySelectorAll('.mweb-toolbar .mweb-state-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=> switchMwebState(btn.dataset.mweb));
+});
+document.querySelectorAll('.mweb .ph-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=> switchMwebState(tab.dataset.mwebTab));
+});
+document.getElementById('mwebSheetClose').addEventListener('click', closeMwebOverlays);
+document.getElementById('mwebSheetBackdrop').addEventListener('click', closeMwebOverlays);
+document.querySelectorAll('#mwebSheet .ph-sheet-item').forEach(item=>{
+  item.addEventListener('click', closeMwebOverlays);
+});
+document.getElementById('mwebChaptersClose').addEventListener('click', closeMwebOverlays);
+
+const mwebChaptersList = document.getElementById('mwebChaptersList');
+CHAPTERS.forEach((title,i)=>{
+  const row = document.createElement('div');
+  const isCurrent = i+1 === 20;
+  row.className = 'ph-drawer-row' + (isCurrent ? ' is-current' : '');
+  row.innerHTML = `<span class="ph-drawer-num">${i+1}</span><span>${title}</span>`;
+  row.addEventListener('click', closeMwebOverlays);
+  mwebChaptersList.appendChild(row);
+});
+
+const mwebDetectList = document.getElementById('mwebDetectList');
+CHAPTERS.forEach((title,i)=>{
+  const row = document.createElement('div');
+  row.className = 'detect-row';
+  row.innerHTML = `<span class="detect-num">${i+1}</span>
+    <div class="detect-title-block"><b>${title}</b><span>detected chapter boundary</span></div>
+    <button class="detect-menu-btn">⋯</button>`;
+  mwebDetectList.appendChild(row);
+});
+</script>
