@@ -18,7 +18,9 @@ export function AIPanel({
   onTabChange,
   openOnMobile,
   onCloseMobile,
-  children
+  children,
+  desktopStyle,
+  onToggleExpand
 }: {
   tabs: AITab[];
   activeTab: string;
@@ -26,6 +28,10 @@ export function AIPanel({
   openOnMobile: boolean;
   onCloseMobile: () => void;
   children: ReactNode;
+  // Desktop width is controlled by the parent (draggable + click-to-expand);
+  // undefined falls back to the responsive default.
+  desktopStyle?: React.CSSProperties;
+  onToggleExpand?: () => void;
 }) {
   const TabStrip = (
     <div className="flex gap-1 overflow-x-auto border-b border-line px-3 py-2">
@@ -45,11 +51,28 @@ export function AIPanel({
 
   return (
     <>
-      {/* Desktop panel — persistent development workspace with room for long interview turns. */}
-      <aside className="hidden min-w-[24rem] shrink-0 basis-1/2 flex-col self-start border-l border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh xl:basis-[56%] 2xl:basis-[58%]">
-        <div className="border-b border-line px-4 py-3">
-          <p className="font-display text-base text-ink">Development</p>
-          <p className="mt-0.5 text-xs text-ink-faint">One question at a time — you stay the author.</p>
+      {/* Desktop panel — persistent development workspace. Width is set by the
+          parent via desktopStyle (drag handle + expand toggle); the responsive
+          fallback keeps it sensible if no width is supplied. */}
+      <aside
+        style={desktopStyle}
+        className={`relative hidden min-w-[22rem] max-w-[80vw] shrink-0 flex-col self-start border-l border-line bg-surface lg:sticky lg:top-0 lg:flex lg:h-dvh ${desktopStyle?.width ? '' : 'basis-1/2 xl:basis-[52%]'}`}
+      >
+        <div className="flex items-start justify-between border-b border-line px-4 py-3">
+          <div className="min-w-0">
+            <p className="font-display text-base text-ink">Development</p>
+            <p className="mt-0.5 text-xs text-ink-faint">One question at a time — you stay the author.</p>
+          </div>
+          {onToggleExpand && (
+            <button
+              onClick={onToggleExpand}
+              title="Expand / restore this panel"
+              aria-label="Expand or restore the development panel"
+              className="ml-2 hidden shrink-0 rounded-md border border-line px-2 py-1 text-sm leading-none text-ink-soft transition hover:border-accent hover:text-accent-strong lg:block"
+            >
+              ↔
+            </button>
+          )}
         </div>
         {TabStrip}
         <div className="flex-1 overflow-y-auto p-5 xl:p-6">{children}</div>

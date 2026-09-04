@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
@@ -50,6 +50,13 @@ export default function ChapterWorkspacePage() {
   const [addingSection, setAddingSection] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Resizable AI (Development) panel — drag the divider to adjust, click it (or
+  // the ↔ button) to expand/restore. Width persists across sessions.
+  const AI_DEFAULT_WIDTH = 460;
+  const [aiWidth, setAiWidth] = useState(AI_DEFAULT_WIDTH);
+  const rowRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ startX: number; startW: number; moved: boolean } | null>(null);
+
   async function load() {
     const [{ data: ch }, { data: secs }] = await Promise.all([
       supabase.from('chapters').select('*').eq('id', params.chapterId).single(),
@@ -68,6 +75,17 @@ export default function ChapterWorkspacePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.chapterId]);
 
+  // Restore the saved panel width once on mount (client-only, so no SSR mismatch).
+  useEffect(() => {
+    try {
+      const saved = Number(window.localStorage.getItem('bb:aiPanelWidth'));
+      if (Number.isFinite(saved) && saved >= 320) setAiWidth(saved);
+    } catch { /* private mode / disabled storage — keep default */ }
+  }, []);
+  useEffect(() => {
+    try { window.localStorage.setItem('bb:aiPanelWidth', String(Math.round(aiWidth))); } catch { /* ignore */ }
+  }, [aiWidth]);
+
   async function saveTitle() {
     if (!chapter || titleDraft === chapter.title) return;
     await supabase.from('chapters').update({ title: titleDraft }).eq('id', chapter.id);
@@ -85,6 +103,36 @@ export default function ChapterWorkspacePage() {
     if (data) setSections((s) => [...(s ?? []), data]);
   }
 
+  // Keep the panel between a readable minimum and leaving the manuscript ≥ 380px.
+  function clampAiWidth(w: number) {
+    const row = rowRef.current?.getBoundingClientRect();
+    const max = row ? Math.max(360, row.width - 380) : 1100;
+    return Math.min(Math.max(w, 360), max);
+  }
+  function onHandleDown(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    dragRef.current = { startX: e.clientX, startW: aiWidth, moved: false };
+  }
+  function onHandleMove(e: React.PointerEvent<HTMLDivElement>) {
+    const d = dragRef.current;
+    if (!d) return;
+    const dx = e.clientX - d.startX;
+    if (Math.abs(dx) > 3) d.moved = true;
+    setAiWidth(clampAiWidth(d.startW - dx)); // dragging left widens the panel
+  }
+  function onHandleUp(e: React.PointerEvent<HTMLDivElement>) {
+    const d = dragRef.current;
+    dragRef.current = null;
+    try { (e.currentTarget as HTMLElement).releasePointerCapture(e.pointerId); } catch { /* ignore */ }
+    if (d && !d.moved) toggleAiExpand(); // a click (not a drag) toggles expand/restore
+  }
+  function toggleAiExpand() {
+    const row = rowRef.current?.getBoundingClientRect();
+    const large = clampAiWidth(row ? Math.round(row.width * 0.6) : 760);
+    setAiWidth((w) => (w >= large - 16 ? AI_DEFAULT_WIDTH : large));
+  }
+
   if (!chapter || sections === null) {
     return <div className="px-5 py-8 text-sm text-ink-faint">Loading…</div>;
   }
@@ -94,8 +142,8 @@ export default function ChapterWorkspacePage() {
   const totalWords = sections.reduce((sum, s) => sum + s.word_count, 0);
 
   return (
-    <div className="flex min-w-0 flex-1">
-      <main className="min-w-0 flex-1 lg:basis-1/2 lg:grow-0 xl:basis-[44%] 2xl:basis-[42%]">
+    <div ref={rowRef} className="flex min-w-0 flex-1">
+      <main className="min-w-0 flex-1">
         {/* Persistent chapter header — stays in view while long prose scrolls,
             so the writer always keeps chapter context + save status. */}
         <div className="sticky top-0 z-10 border-b border-line bg-paper/85 backdrop-blur">
@@ -181,7 +229,27 @@ export default function ChapterWorkspacePage() {
         </div>
       </main>
 
-      <AIPanel tabs={TABS} activeTab={activeTab} onTabChange={setActiveTab} openOnMobile={aiSheetOpen} onCloseMobile={() => setAiSheetOpen(false)}>
+      {/* Desktop drag divider: drag to resize the panel, click to expand/restore. */}
+      <div
+        onPointerDown={onHandleDown}
+        onPointerMove={onHandleMove}
+        onPointerUp={onHandleUp}
+        onDoubleClick={() => setAiWidth(AI_DEFAULT_WIDTH)}
+        role="separator"
+        aria-orientation="vertical"
+        title="Drag to resize · click to expand or restore · double-click to reset"
+        className="relative hidden w-1.5 shrink-0 cursor-col-resize touch-none select-none self-stretch bg-line/50 transition hover:bg-accent/60 lg:block"
+      />
+
+      <AIPanel
+        tabs={TABS}
+        activeTab={activeTab}
+        onTabChange={setActiveTab}
+        openOnMobile={aiSheetOpen}
+        onCloseMobile={() => setAiSheetOpen(false)}
+        desktopStyle={{ width: aiWidth }}
+        onToggleExpand={toggleAiExpand}
+      >
         {activeTab === 'continue' && (
           <HelpMeContinuePanel bookId={book.id} chapterId={chapter.id} sectionId={currentSection?.id} />
         )}
