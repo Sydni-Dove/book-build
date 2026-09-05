@@ -12,6 +12,7 @@ import { buildDeepReviewDigest, verifyAiCandidates, verifyAiCandidatesDetailed, 
 import { callOpenAIStructured } from '@/lib/ai/client';
 import { isAiUsageLimitError } from '@/lib/ai/usage';
 import { computeVoiceConsistency, type VoiceSectionInput } from '@/lib/ai/review/voiceConsistency';
+import { computePhrasing, type PhrasingSectionInput } from '@/lib/ai/review/phrasing';
 import {
   selectActiveModules,
   buildGuidanceText,
@@ -1478,6 +1479,30 @@ export async function getVoiceReport(supabase: SB, args: { book_id: string }): P
   const report = computeVoiceConsistency(input);
   return revisionResult('ok', { book: { id: r.book.id, title: r.book.title }, ...report },
     report.status === 'ok' ? report.summary.note : (report.detail ?? 'Not enough written yet to compare voice.'));
+}
+
+// Whole-manuscript PHRASING check — deterministic, read-only. Surfaces the
+// generic/overwritten-prose tells (the "not X, but Y" cadence, significance
+// words, filler, repeated openers) with the actual lines. No LLM, no writes.
+export async function getPhrasingReport(supabase: SB, args: { book_id: string }): Promise<ToolResult> {
+  const r = await resolveBook(supabase, args.book_id);
+  if (r.status !== 'ok') return revisionResult('NOT_FOUND', { detail: 'Book not found or not permitted.' });
+  const { data: chapters } = await supabase.from('chapters').select('id, chapter_number, title, sort_order').eq('book_id', args.book_id).is('archived_at', null);
+  const chList = (chapters ?? []) as { id: string; chapter_number: number | null; title: string; sort_order: number }[];
+  const chById = new Map(chList.map((c) => [c.id, c]));
+  const chIds = chList.map((c) => c.id);
+  const { data: sections } = chIds.length
+    ? await supabase.from('writing_sections').select('id, chapter_id, sort_order, content').in('chapter_id', chIds)
+    : { data: [] };
+  const { data: chars } = await supabase.from('characters').select('name').eq('book_id', args.book_id);
+  const secs = (sections ?? []) as { id: string; chapter_id: string; sort_order: number; content: string }[];
+  const input: PhrasingSectionInput[] = secs
+    .map((s) => ({ s, ch: chById.get(s.chapter_id) }))
+    .filter((x): x is { s: typeof secs[number]; ch: NonNullable<ReturnType<typeof chById.get>> } => !!x.ch)
+    .sort((a, b) => a.ch.sort_order - b.ch.sort_order || a.s.sort_order - b.s.sort_order)
+    .map(({ s, ch }) => ({ section_id: s.id, chapter_id: s.chapter_id, chapter_number: ch.chapter_number, title: ch.title, content: s.content ?? '' }));
+  const report = computePhrasing(input, (chars ?? []).map((c) => c.name));
+  return revisionResult('ok', { book: { id: r.book.id, title: r.book.title }, ...report }, report.note);
 }
 
 export async function listReviewFindings(supabase: SB, args: { book_id: string }): Promise<ToolResult> {

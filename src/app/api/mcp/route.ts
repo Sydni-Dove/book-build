@@ -35,6 +35,7 @@ import {
   setReviewFindingStatus,
   proposeCanonFromFinding,
   getVoiceReport,
+  getPhrasingReport,
   type ToolResult
 } from '@/lib/mcp/tools';
 
@@ -409,6 +410,18 @@ const baseHandler = createMcpHandler(
       },
       async (args: { book_id: string }, ctx: unknown): Promise<ToolResult> =>
         getVoiceReport(supabaseFor(ctx), args)
+    );
+
+    server.registerTool(
+      'get_phrasing_report',
+      {
+        title: 'Phrasing Check (whole manuscript)',
+        description:
+          'READ-ONLY, deterministic (no OpenAI). Scans the ACTIVE manuscript for phrasing patterns that read as generic or overwritten — the "not X, but Y" cadence, significance/insistence words (profound, sacred, palpable…), filler phrases, repeated sentence-openers, and emphatic fragment runs — and returns the ACTUAL lines with their chapter. Excludes dialogue (spoken rhythm is intentional). Never claims text is AI-written and never edits anything; the writer decides what is intentional.',
+        inputSchema: z.object({ book_id: z.string().uuid() })
+      },
+      async (args: { book_id: string }, ctx: unknown): Promise<ToolResult> =>
+        getPhrasingReport(supabaseFor(ctx), args)
     );
 
     server.registerTool(

@@ -16,6 +16,9 @@ type Report = {
   summary: { consistent: boolean; outlier_count: number; note: string };
 };
 type Suggestion = { original: string; suggestion: string; note: string };
+type PhrasingHit = { evidence: string; chapter_number: number | null; chapter_id: string; section_id: string };
+type PhrasingGroup = { key: string; label: string; description: string; tightenable: boolean; count: number; hits: PhrasingHit[] };
+type PhrasingReport = { status: 'ok' | 'empty'; total: number; groups: PhrasingGroup[]; note: string };
 
 function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
@@ -97,11 +100,81 @@ function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
   );
 }
 
+function PhrasingGroupCard({ bookId, g }: { bookId: string; g: PhrasingGroup }) {
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function tighten() {
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch('/api/books/voice/revise', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ book_id: bookId, concern: `Overuse of ${g.label.toLowerCase()}`, passages: g.hits.map((h) => h.evidence).slice(0, 6) })
+      });
+      const data = await res.json();
+      if (!res.ok) { setErr(data.code === 'AI_USAGE_LIMIT_REACHED' ? data.error : 'Could not get suggestions — try again.'); return; }
+      setSuggestions((data.suggestions ?? []) as Suggestion[]);
+    } catch { setErr('Could not get suggestions — try again.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5">
+      <div className="mb-1 flex items-center justify-between gap-3">
+        <p className="font-display text-base text-ink">{g.label}</p>
+        <span className="rounded-md bg-paper-sunken px-2 py-0.5 text-xs text-ink-soft">{g.count} spot{g.count === 1 ? '' : 's'}</span>
+      </div>
+      <p className="mb-3 text-xs text-ink-faint">{g.description}</p>
+      <ul className="space-y-1.5">
+        {g.hits.map((h, i) => (
+          <li key={i} className="text-sm text-ink-soft">
+            <span className="italic">“{h.evidence}”</span>{' '}
+            <Link href={`/books/${bookId}/chapters/${h.chapter_id}`} className="whitespace-nowrap text-xs text-accent-strong hover:underline">
+              {h.chapter_number ? `Ch ${h.chapter_number} →` : 'open →'}
+            </Link>
+          </li>
+        ))}
+      </ul>
+      {g.tightenable && (
+        <button onClick={tighten} disabled={busy} className="mt-3 rounded-lg border border-line px-3 py-2 text-xs font-medium text-accent-strong transition hover:border-accent disabled:opacity-60">
+          {busy ? 'Thinking…' : suggestions ? 'Suggest again' : '✨ Help me tighten these'}
+        </button>
+      )}
+      {err && <p className="mt-2 text-sm text-critical">{err}</p>}
+      {suggestions && (
+        <div className="mt-3 space-y-3 border-t border-line pt-3">
+          <p className="text-xs text-ink-faint">Suggestions only — nothing changes until you edit it in the chapter.</p>
+          {suggestions.map((s, i) => (
+            <div key={i} className="rounded-lg border border-line p-3">
+              <p className="text-sm text-ink-soft"><span className="text-ink-faint">Now:</span> “{s.original}”</p>
+              <p className="mt-1 text-sm text-ink"><span className="text-ink-faint">Tighter:</span> “{s.suggestion}”</p>
+              {s.note && <p className="mt-1 text-xs text-ink-faint">{s.note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function VoicePage() {
   const { book } = useBook();
   const [report, setReport] = useState<Report | null>(null);
   const [running, setRunning] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [phrasing, setPhrasing] = useState<PhrasingReport | null>(null);
+  const [phrasingRunning, setPhrasingRunning] = useState(false);
+
+  async function runPhrasing() {
+    setPhrasingRunning(true);
+    try {
+      const res = await fetch('/api/books/phrasing', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ book_id: book.id }) });
+      const data = await res.json();
+      if (res.ok) setPhrasing(data as PhrasingReport);
+    } catch { /* ignore */ }
+    finally { setPhrasingRunning(false); }
+  }
 
   async function run() {
     setRunning(true); setError(null);
@@ -148,6 +221,30 @@ export default function VoicePage() {
           )}
         </>
       )}
+
+      {/* Phrasing check — patterns that read generic / overwritten (no AI-detection claim). */}
+      <div className="mt-10 border-t border-line pt-8">
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <h2 className="font-display text-xl text-ink">Phrasing check</h2>
+          <Button variant="secondary" onClick={runPhrasing} disabled={phrasingRunning}>
+            {phrasingRunning ? 'Checking…' : phrasing ? 'Check again' : 'Check phrasing'}
+          </Button>
+        </div>
+        <p className="mb-6 text-sm text-ink-soft">
+          Looks for phrasing that reads generic or overwritten — the “not X, but Y” cadence, significance words (profound, sacred, palpable…), filler, and repeated openers.
+          It shows you the actual lines; it does <em>not</em> claim anything is AI-written, and it changes nothing. You decide what’s intentional.
+        </p>
+
+        {phrasing && phrasing.status === 'empty' && (<p className="text-sm text-ink-faint">{phrasing.note}</p>)}
+        {phrasing && phrasing.status === 'ok' && (
+          <>
+            <div className="mb-6 rounded-xl border border-line bg-surface p-5"><p className="text-sm text-ink">{phrasing.note}</p></div>
+            <div className="space-y-4">
+              {phrasing.groups.map((g) => (<PhrasingGroupCard key={g.key} bookId={book.id} g={g} />))}
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
