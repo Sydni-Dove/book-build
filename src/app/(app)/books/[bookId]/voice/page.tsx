@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useBook } from '@/components/layout/BookContext';
 import { Button } from '@/components/ui';
@@ -27,7 +27,11 @@ function findParam(sentence: string): string {
   return s ? `?find=${encodeURIComponent(s)}` : '';
 }
 
-function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
+type RecentEntry = { label: string; chapter_id: string; chapter_number: number | null; find: string };
+function lsGet<T>(key: string, fallback: T): T { try { const v = window.localStorage.getItem(key); return v ? (JSON.parse(v) as T) : fallback; } catch { return fallback; } }
+function lsSet(key: string, val: unknown) { try { window.localStorage.setItem(key, JSON.stringify(val)); } catch { /* ignore */ } }
+
+function OutlierCard({ bookId, o, onOpen }: { bookId: string; o: Outlier; onOpen: (e: RecentEntry) => void }) {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -74,6 +78,7 @@ function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
       <div className="flex flex-wrap items-center gap-2">
         <Link
           href={`/books/${bookId}/chapters/${o.chapter_id}${o.examples[0] ? findParam(o.examples[0]) : ''}`}
+          onClick={() => onOpen({ label: o.examples[0] || `Chapter ${o.chapter_number ?? ''} · ${o.title ?? ''}`, chapter_id: o.chapter_id, chapter_number: o.chapter_number, find: o.examples[0] || '' })}
           className="rounded-lg bg-accent-strong px-3 py-2 text-xs font-medium text-white transition hover:opacity-90"
         >
           Open chapter →
@@ -107,7 +112,7 @@ function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
   );
 }
 
-function PhrasingGroupCard({ bookId, g }: { bookId: string; g: PhrasingGroup }) {
+function PhrasingGroupCard({ bookId, g, onOpen }: { bookId: string; g: PhrasingGroup; onOpen: (e: RecentEntry) => void }) {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
@@ -139,7 +144,7 @@ function PhrasingGroupCard({ bookId, g }: { bookId: string; g: PhrasingGroup }) 
             <p className="text-sm italic text-ink-soft">“{h.sentence}”</p>
             <p className="mt-0.5 text-xs text-ink-faint">
               {h.pattern}{' · '}
-              <Link href={`/books/${bookId}/chapters/${h.chapter_id}${findParam(h.sentence)}`} className="whitespace-nowrap text-accent-strong hover:underline">
+              <Link href={`/books/${bookId}/chapters/${h.chapter_id}${findParam(h.sentence)}`} onClick={() => onOpen({ label: h.sentence, chapter_id: h.chapter_id, chapter_number: h.chapter_number, find: h.sentence })} className="whitespace-nowrap text-accent-strong hover:underline">
                 {h.chapter_number ? `open Chapter ${h.chapter_number} →` : 'open chapter →'}
               </Link>
             </p>
@@ -175,6 +180,28 @@ export default function VoicePage() {
   const [error, setError] = useState<string | null>(null);
   const [phrasing, setPhrasing] = useState<PhrasingReport | null>(null);
   const [phrasingRunning, setPhrasingRunning] = useState(false);
+  const [recent, setRecent] = useState<RecentEntry[]>([]);
+
+  const kReport = `bb:voiceReport:${book.id}`;
+  const kPhrasing = `bb:phrasingReport:${book.id}`;
+  const kRecent = `bb:voiceRecent:${book.id}`;
+
+  // Restore the last results + recently-opened list so nothing is erased when
+  // you leave to a chapter and come back.
+  useEffect(() => {
+    setReport(lsGet<Report | null>(kReport, null));
+    setPhrasing(lsGet<PhrasingReport | null>(kPhrasing, null));
+    setRecent(lsGet<RecentEntry[]>(kRecent, []));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [book.id]);
+  useEffect(() => { if (report) lsSet(kReport, report); /* eslint-disable-next-line */ }, [report]);
+  useEffect(() => { if (phrasing) lsSet(kPhrasing, phrasing); /* eslint-disable-next-line */ }, [phrasing]);
+
+  function rememberOpened(e: RecentEntry) {
+    const next = [e, ...recent.filter((r) => !(r.chapter_id === e.chapter_id && r.find === e.find))].slice(0, 12);
+    setRecent(next);
+    lsSet(kRecent, next);
+  }
 
   async function runPhrasing() {
     setPhrasingRunning(true);
@@ -208,8 +235,30 @@ export default function VoicePage() {
         noticeably different from the rest, shows you the exact passages, and can suggest tighter wording. Nothing here changes your manuscript.
       </p>
 
+      {recent.length > 0 && (
+        <div className="mb-6 rounded-xl border border-line bg-surface p-4">
+          <div className="mb-2 flex items-center justify-between">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Recently opened</p>
+            <button onClick={() => { setRecent([]); lsSet(kRecent, []); }} className="text-xs text-ink-faint hover:text-ink">Clear</button>
+          </div>
+          <ul className="space-y-1">
+            {recent.map((e, i) => (
+              <li key={i} className="truncate text-sm">
+                <Link
+                  href={`/books/${book.id}/chapters/${e.chapter_id}${findParam(e.find)}`}
+                  onClick={() => rememberOpened(e)}
+                  className="text-accent-strong hover:underline"
+                >
+                  {e.chapter_number ? `Ch ${e.chapter_number}: ` : ''}{e.label ? `“${e.label.slice(0, 90)}${e.label.length > 90 ? '…' : ''}”` : 'open chapter'}
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {error && <p className="mb-4 text-sm text-critical">{error}</p>}
-      {!report && !running && (<p className="text-sm text-ink-faint">Click “Check my voice” to scan the whole manuscript.</p>)}
+      {!report && !running && recent.length === 0 && (<p className="text-sm text-ink-faint">Click “Check my voice” to scan the whole manuscript.</p>)}
 
       {report && report.status === 'insufficient_text' && (
         <div className="rounded-xl border border-line bg-surface p-5 text-sm text-ink-soft">{report.detail}</div>
@@ -226,7 +275,7 @@ export default function VoicePage() {
             <p className="text-sm text-ink-faint">No sections stood out. Your voice reads consistently.</p>
           ) : (
             <div className="space-y-4">
-              {report.outliers.map((o) => (<OutlierCard key={o.section_id} bookId={book.id} o={o} />))}
+              {report.outliers.map((o) => (<OutlierCard key={o.section_id} bookId={book.id} o={o} onOpen={rememberOpened} />))}
             </div>
           )}
         </>
@@ -250,7 +299,7 @@ export default function VoicePage() {
           <>
             <div className="mb-6 rounded-xl border border-line bg-surface p-5"><p className="text-sm text-ink">{phrasing.note}</p></div>
             <div className="space-y-4">
-              {phrasing.groups.map((g) => (<PhrasingGroupCard key={g.key} bookId={book.id} g={g} />))}
+              {phrasing.groups.map((g) => (<PhrasingGroupCard key={g.key} bookId={book.id} g={g} onOpen={rememberOpened} />))}
             </div>
           </>
         )}

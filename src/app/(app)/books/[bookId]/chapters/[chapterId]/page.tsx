@@ -58,6 +58,7 @@ export default function ChapterWorkspacePage() {
   const rowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startW: number; moved: boolean } | null>(null);
   const jumpedRef = useRef(false);
+  const [jumpTarget, setJumpTarget] = useState<string | null>(null);
 
   async function load() {
     const [{ data: ch }, { data: secs }] = await Promise.all([
@@ -89,7 +90,9 @@ export default function ChapterWorkspacePage() {
   }, [aiWidth]);
 
   // Jump to + highlight a sentence passed via ?find= (from Voice / Phrasing
-  // checks). Runs once after the chapter's prose is on screen.
+  // checks). Runs once after the chapter's prose is on screen. Matches are
+  // whitespace-tolerant (the report normalizes whitespace; the manuscript may
+  // wrap), and the highlight is a persistent, obvious mark.
   useEffect(() => {
     if (jumpedRef.current || !sections || sections.length === 0) return;
     const raw = new URLSearchParams(window.location.search).get('find');
@@ -97,34 +100,40 @@ export default function ChapterWorkspacePage() {
     const needle = decodeURIComponent(raw).trim();
     if (needle.length < 6) return;
     jumpedRef.current = true;
+    setJumpTarget(needle);
+    // Build a whitespace-tolerant regex from the needle.
+    const rx = new RegExp(needle.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s+'), 'i');
     const t = setTimeout(() => {
-      // 1) Read-only prior sections — find, highlight, and scroll to the match.
-      try {
-        const sel = window.getSelection?.();
-        sel?.removeAllRanges?.();
-        const winFind = (window as unknown as { find?: (s: string, cs?: boolean, bw?: boolean, wrap?: boolean) => boolean }).find;
-        if (winFind && winFind(needle, false, false, true) && sel && sel.rangeCount) {
-          const range = sel.getRangeAt(0);
+      // 1) Read-only prior sections — each section renders its content as a
+      //    single text node, so we can wrap the exact match in a <mark>.
+      const readerNodes = document.querySelectorAll('div.manuscript-textarea > div');
+      for (const div of Array.from(readerNodes)) {
+        const node = div.firstChild;
+        if (!node || node.nodeType !== Node.TEXT_NODE) continue;
+        const text = node.nodeValue || '';
+        const m = rx.exec(text);
+        if (!m) continue;
+        try {
+          const range = document.createRange();
+          range.setStart(node, m.index);
+          range.setEnd(node, m.index + m[0].length);
           const mark = document.createElement('mark');
-          mark.style.cssText = 'background:rgba(245,200,66,.55);border-radius:2px;padding:0 1px;';
-          try {
-            range.surroundContents(mark);
-            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            sel.removeAllRanges();
-            setTimeout(() => { const p = mark.parentNode; if (p) { while (mark.firstChild) p.insertBefore(mark.firstChild, mark); p.removeChild(mark); } }, 4500);
-          } catch {
-            (range.startContainer.parentElement as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }
+          mark.className = 'bb-jump';
+          mark.style.cssText = 'background:#fde68a;box-shadow:0 0 0 3px #fde68a;border-radius:2px;';
+          range.surroundContents(mark);
+          mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
           return;
-        }
-      } catch { /* ignore */ }
+        } catch { /* fall through to scroll the block */ }
+        (div as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
       // 2) Current editable section — select the text in the textarea.
       const ta = document.querySelector('textarea.manuscript-textarea') as HTMLTextAreaElement | null;
       if (ta) {
-        const idx = ta.value.toLowerCase().indexOf(needle.toLowerCase());
-        if (idx >= 0) {
+        const m = rx.exec(ta.value);
+        if (m) {
           ta.focus();
-          try { ta.setSelectionRange(idx, idx + needle.length); } catch { /* ignore */ }
+          try { ta.setSelectionRange(m.index, m.index + m[0].length); } catch { /* ignore */ }
           ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }
       }
@@ -240,6 +249,12 @@ export default function ChapterWorkspacePage() {
             wide enough to work, narrow enough to read; generous side padding
             keeps it from floating as a thin strip. */}
         <div className="w-full px-5 py-9 sm:px-7 lg:px-8">
+          {jumpTarget && (
+            <div className="mb-6 flex items-start justify-between gap-3 rounded-lg border border-gold-strong/30 bg-gold-soft px-4 py-3">
+              <p className="text-sm text-ink"><span className="font-semibold">Jumped to this line</span> (highlighted below): <span className="italic">“{jumpTarget}…”</span></p>
+              <button onClick={() => setJumpTarget(null)} className="shrink-0 text-ink-soft hover:text-ink" aria-label="Dismiss">✕</button>
+            </div>
+          )}
           {priorSections.length > 0 && (
             <div className="mb-8">
               <ChapterReader sections={priorSections} />
