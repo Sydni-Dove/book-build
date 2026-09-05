@@ -16,7 +16,7 @@ type Report = {
   summary: { consistent: boolean; outlier_count: number; note: string };
 };
 type Suggestion = { original: string; suggestion: string; note: string };
-type PhrasingHit = { evidence: string; chapter_number: number | null; chapter_id: string; section_id: string };
+type PhrasingHit = { pattern: string; sentence: string; chapter_number: number | null; chapter_id: string; section_id: string };
 type PhrasingGroup = { key: string; label: string; description: string; tightenable: boolean; count: number; hits: PhrasingHit[] };
 type PhrasingReport = { status: 'ok' | 'empty'; total: number; groups: PhrasingGroup[]; note: string };
 
@@ -110,7 +110,7 @@ function PhrasingGroupCard({ bookId, g }: { bookId: string; g: PhrasingGroup }) 
     try {
       const res = await fetch('/api/books/voice/revise', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ book_id: bookId, concern: `Overuse of ${g.label.toLowerCase()}`, passages: g.hits.map((h) => h.evidence).slice(0, 6) })
+        body: JSON.stringify({ book_id: bookId, concern: `Overuse of ${g.label.toLowerCase()}`, passages: g.hits.map((h) => h.sentence).slice(0, 6) })
       });
       const data = await res.json();
       if (!res.ok) { setErr(data.code === 'AI_USAGE_LIMIT_REACHED' ? data.error : 'Could not get suggestions — try again.'); return; }
@@ -126,13 +126,16 @@ function PhrasingGroupCard({ bookId, g }: { bookId: string; g: PhrasingGroup }) 
         <span className="rounded-md bg-paper-sunken px-2 py-0.5 text-xs text-ink-soft">{g.count} spot{g.count === 1 ? '' : 's'}</span>
       </div>
       <p className="mb-3 text-xs text-ink-faint">{g.description}</p>
-      <ul className="space-y-1.5">
+      <ul className="space-y-2.5">
         {g.hits.map((h, i) => (
-          <li key={i} className="text-sm text-ink-soft">
-            <span className="italic">“{h.evidence}”</span>{' '}
-            <Link href={`/books/${bookId}/chapters/${h.chapter_id}`} className="whitespace-nowrap text-xs text-accent-strong hover:underline">
-              {h.chapter_number ? `Ch ${h.chapter_number} →` : 'open →'}
-            </Link>
+          <li key={i}>
+            <p className="text-sm italic text-ink-soft">“{h.sentence}”</p>
+            <p className="mt-0.5 text-xs text-ink-faint">
+              {h.pattern}{' · '}
+              <Link href={`/books/${bookId}/chapters/${h.chapter_id}`} className="whitespace-nowrap text-accent-strong hover:underline">
+                {h.chapter_number ? `open Chapter ${h.chapter_number} →` : 'open chapter →'}
+              </Link>
+            </p>
           </li>
         ))}
       </ul>
