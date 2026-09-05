@@ -57,6 +57,7 @@ export default function ChapterWorkspacePage() {
   const [aiWidth, setAiWidth] = useState(AI_DEFAULT_WIDTH);
   const rowRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startW: number; moved: boolean } | null>(null);
+  const jumpedRef = useRef(false);
 
   async function load() {
     const [{ data: ch }, { data: secs }] = await Promise.all([
@@ -86,6 +87,50 @@ export default function ChapterWorkspacePage() {
   useEffect(() => {
     try { window.localStorage.setItem('bb:aiPanelWidth', String(Math.round(aiWidth))); } catch { /* ignore */ }
   }, [aiWidth]);
+
+  // Jump to + highlight a sentence passed via ?find= (from Voice / Phrasing
+  // checks). Runs once after the chapter's prose is on screen.
+  useEffect(() => {
+    if (jumpedRef.current || !sections || sections.length === 0) return;
+    const raw = new URLSearchParams(window.location.search).get('find');
+    if (!raw) return;
+    const needle = decodeURIComponent(raw).trim();
+    if (needle.length < 6) return;
+    jumpedRef.current = true;
+    const t = setTimeout(() => {
+      // 1) Read-only prior sections — find, highlight, and scroll to the match.
+      try {
+        const sel = window.getSelection?.();
+        sel?.removeAllRanges?.();
+        const winFind = (window as unknown as { find?: (s: string, cs?: boolean, bw?: boolean, wrap?: boolean) => boolean }).find;
+        if (winFind && winFind(needle, false, false, true) && sel && sel.rangeCount) {
+          const range = sel.getRangeAt(0);
+          const mark = document.createElement('mark');
+          mark.style.cssText = 'background:rgba(245,200,66,.55);border-radius:2px;padding:0 1px;';
+          try {
+            range.surroundContents(mark);
+            mark.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            sel.removeAllRanges();
+            setTimeout(() => { const p = mark.parentNode; if (p) { while (mark.firstChild) p.insertBefore(mark.firstChild, mark); p.removeChild(mark); } }, 4500);
+          } catch {
+            (range.startContainer.parentElement as HTMLElement | null)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+          return;
+        }
+      } catch { /* ignore */ }
+      // 2) Current editable section — select the text in the textarea.
+      const ta = document.querySelector('textarea.manuscript-textarea') as HTMLTextAreaElement | null;
+      if (ta) {
+        const idx = ta.value.toLowerCase().indexOf(needle.toLowerCase());
+        if (idx >= 0) {
+          ta.focus();
+          try { ta.setSelectionRange(idx, idx + needle.length); } catch { /* ignore */ }
+          ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      }
+    }, 450);
+    return () => clearTimeout(t);
+  }, [sections]);
 
   async function saveTitle() {
     if (!chapter || titleDraft === chapter.title) return;

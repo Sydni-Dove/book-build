@@ -20,6 +20,13 @@ type PhrasingHit = { pattern: string; sentence: string; chapter_number: number |
 type PhrasingGroup = { key: string; label: string; description: string; tightenable: boolean; count: number; hits: PhrasingHit[] };
 type PhrasingReport = { status: 'ok' | 'empty'; total: number; groups: PhrasingGroup[]; note: string };
 
+// A distinctive, single-line slice of a sentence used to locate + highlight it
+// on the chapter page. Kept short so it stays within one line of prose.
+function findParam(sentence: string): string {
+  const s = (sentence ?? '').replace(/…+$/,'').replace(/^["“'']+|["”'']+$/g, '').trim().slice(0, 55).trim();
+  return s ? `?find=${encodeURIComponent(s)}` : '';
+}
+
 function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
   const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -66,7 +73,7 @@ function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
 
       <div className="flex flex-wrap items-center gap-2">
         <Link
-          href={`/books/${bookId}/chapters/${o.chapter_id}`}
+          href={`/books/${bookId}/chapters/${o.chapter_id}${o.examples[0] ? findParam(o.examples[0]) : ''}`}
           className="rounded-lg bg-accent-strong px-3 py-2 text-xs font-medium text-white transition hover:opacity-90"
         >
           Open chapter →
@@ -132,7 +139,7 @@ function PhrasingGroupCard({ bookId, g }: { bookId: string; g: PhrasingGroup }) 
             <p className="text-sm italic text-ink-soft">“{h.sentence}”</p>
             <p className="mt-0.5 text-xs text-ink-faint">
               {h.pattern}{' · '}
-              <Link href={`/books/${bookId}/chapters/${h.chapter_id}`} className="whitespace-nowrap text-accent-strong hover:underline">
+              <Link href={`/books/${bookId}/chapters/${h.chapter_id}${findParam(h.sentence)}`} className="whitespace-nowrap text-accent-strong hover:underline">
                 {h.chapter_number ? `open Chapter ${h.chapter_number} →` : 'open chapter →'}
               </Link>
             </p>
