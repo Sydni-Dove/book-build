@@ -13,11 +13,14 @@ export async function GET(request: Request) {
   const code = url.searchParams.get('code');
   const next = url.searchParams.get('next') || '/reset-password';
 
-  // Production-vs-local origin: behind Vercel the public host is on
-  // x-forwarded-host; locally use the request origin as-is.
+  // Where to send the user after the exchange. Prefer the configured stable
+  // site URL in production so recovery always lands on the production address;
+  // otherwise use the forwarded host (behind Vercel) or the request origin.
   const isLocal = process.env.NODE_ENV === 'development';
   const forwardedHost = request.headers.get('x-forwarded-host');
-  const base = isLocal ? url.origin : forwardedHost ? `https://${forwardedHost}` : url.origin;
+  const base = isLocal
+    ? url.origin
+    : process.env.NEXT_PUBLIC_SITE_URL || (forwardedHost ? `https://${forwardedHost}` : url.origin);
 
   if (code) {
     const supabase = createServerSupabase();

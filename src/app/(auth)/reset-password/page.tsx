@@ -38,9 +38,12 @@ export default function ResetPasswordPage() {
     setLoading(true);
     setError(null);
     // Land on the PKCE code-exchange route, which then returns here to set the
-    // new password. window.location.origin is the production origin in prod.
+    // new password. Prefer the configured stable site URL so recovery emails
+    // always return to the production address, no matter which URL the request
+    // was initiated from; fall back to the current origin (e.g. local dev).
+    const origin = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/reset-password`
+      redirectTo: `${origin}/auth/callback?next=/reset-password`
     });
     setLoading(false);
     if (error) { setError(error.message); return; }
