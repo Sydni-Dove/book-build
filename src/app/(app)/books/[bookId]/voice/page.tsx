@@ -6,7 +6,7 @@ import { useBook } from '@/components/layout/BookContext';
 import { Button } from '@/components/ui';
 
 type Reason = { metric: string; label: string; value: number; baseline: number; delta: number; z: number; direction: 'higher' | 'lower'; text: string };
-type Outlier = { chapter_number: number | null; title: string | null; section_id: string; chapter_id: string; score: number; question: string; reasons: Reason[] };
+type Outlier = { chapter_number: number | null; title: string | null; section_id: string; chapter_id: string; score: number; question: string; reasons: Reason[]; examples: string[] };
 type Report = {
   status: 'ok' | 'insufficient_text';
   detail?: string;
@@ -15,6 +15,87 @@ type Report = {
   outliers: Outlier[];
   summary: { consistent: boolean; outlier_count: number; note: string };
 };
+type Suggestion = { original: string; suggestion: string; note: string };
+
+function OutlierCard({ bookId, o }: { bookId: string; o: Outlier }) {
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function tighten() {
+    setBusy(true); setErr(null);
+    try {
+      const concern = o.reasons.map((r) => r.text).join(' ');
+      const res = await fetch('/api/books/voice/revise', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ book_id: bookId, concern, passages: o.examples })
+      });
+      const data = await res.json();
+      if (!res.ok) { setErr(data.code === 'AI_USAGE_LIMIT_REACHED' ? data.error : 'Could not get suggestions — try again.'); return; }
+      setSuggestions((data.suggestions ?? []) as Suggestion[]);
+    } catch { setErr('Could not get suggestions — try again.'); }
+    finally { setBusy(false); }
+  }
+
+  return (
+    <div className="rounded-xl border border-line bg-surface p-5">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="font-display text-base text-ink">
+          {o.chapter_number ? `Chapter ${o.chapter_number}` : 'Chapter'}{o.title ? ` · ${o.title}` : ''}
+        </p>
+        <span className="rounded-md bg-paper-sunken px-2 py-0.5 text-xs text-ink-soft">reads differently</span>
+      </div>
+
+      <ul className="mb-3 space-y-1">
+        {o.reasons.map((r) => (<li key={r.metric} className="text-sm text-ink">• {r.text}</li>))}
+      </ul>
+
+      {o.examples.length > 0 && (
+        <div className="mb-3 rounded-lg bg-paper-sunken p-3">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">Passages that stand out</p>
+          <ul className="space-y-1.5">
+            {o.examples.map((ex, i) => (<li key={i} className="text-sm italic text-ink-soft">“{ex}”</li>))}
+          </ul>
+        </div>
+      )}
+
+      <p className="mb-3 text-sm text-ink-soft">{o.question}</p>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <Link
+          href={`/books/${bookId}/chapters/${o.chapter_id}`}
+          className="rounded-lg bg-accent-strong px-3 py-2 text-xs font-medium text-white transition hover:opacity-90"
+        >
+          Open chapter →
+        </Link>
+        {o.examples.length > 0 && (
+          <button
+            onClick={tighten}
+            disabled={busy}
+            className="rounded-lg border border-line px-3 py-2 text-xs font-medium text-accent-strong transition hover:border-accent disabled:opacity-60"
+          >
+            {busy ? 'Thinking…' : suggestions ? 'Suggest again' : '✨ Help me tighten these'}
+          </button>
+        )}
+      </div>
+
+      {err && <p className="mt-2 text-sm text-critical">{err}</p>}
+
+      {suggestions && (
+        <div className="mt-4 space-y-3 border-t border-line pt-4">
+          <p className="text-xs text-ink-faint">Suggestions only — nothing changes until you edit it in the chapter.</p>
+          {suggestions.map((s, i) => (
+            <div key={i} className="rounded-lg border border-line p-3">
+              <p className="text-sm text-ink-soft"><span className="text-ink-faint">Now:</span> “{s.original}”</p>
+              <p className="mt-1 text-sm text-ink"><span className="text-ink-faint">Tighter:</span> “{s.suggestion}”</p>
+              {s.note && <p className="mt-1 text-xs text-ink-faint">{s.note}</p>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function VoicePage() {
   const { book } = useBook();
@@ -23,8 +104,7 @@ export default function VoicePage() {
   const [error, setError] = useState<string | null>(null);
 
   async function run() {
-    setRunning(true);
-    setError(null);
+    setRunning(true); setError(null);
     try {
       const res = await fetch('/api/books/voice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ book_id: book.id }) });
       const data = await res.json();
@@ -42,14 +122,11 @@ export default function VoicePage() {
       </div>
       <p className="mb-6 text-sm text-ink-soft">
         A read of how consistent your writing voice is across the whole book — sentence length, adverbs, dialogue vs. narration, fragments. It only flags sections that read
-        noticeably different from the rest, and asks whether that&apos;s intentional. Nothing here changes your manuscript, and no AI is used.
+        noticeably different from the rest, shows you the exact passages, and can suggest tighter wording. Nothing here changes your manuscript.
       </p>
 
       {error && <p className="mb-4 text-sm text-critical">{error}</p>}
-
-      {!report && !running && (
-        <p className="text-sm text-ink-faint">Click “Check my voice” to scan the whole manuscript.</p>
-      )}
+      {!report && !running && (<p className="text-sm text-ink-faint">Click “Check my voice” to scan the whole manuscript.</p>)}
 
       {report && report.status === 'insufficient_text' && (
         <div className="rounded-xl border border-line bg-surface p-5 text-sm text-ink-soft">{report.detail}</div>
@@ -58,9 +135,7 @@ export default function VoicePage() {
       {report && report.status === 'ok' && (
         <>
           <div className="mb-6 rounded-xl border border-line bg-surface p-5">
-            <p className="text-sm text-ink">
-              {report.summary.consistent ? '✓ ' : ''}{report.summary.note}
-            </p>
+            <p className="text-sm text-ink">{report.summary.consistent ? '✓ ' : ''}{report.summary.note}</p>
             <p className="mt-1 text-xs text-ink-faint">Compared {report.compared_count} of {report.section_count} sections (sections under ~120 words are skipped as too short to judge).</p>
           </div>
 
@@ -68,22 +143,7 @@ export default function VoicePage() {
             <p className="text-sm text-ink-faint">No sections stood out. Your voice reads consistently.</p>
           ) : (
             <div className="space-y-4">
-              {report.outliers.map((o) => (
-                <div key={o.section_id} className="rounded-xl border border-line bg-surface p-5">
-                  <div className="mb-2 flex items-center justify-between gap-3">
-                    <Link href={`/books/${book.id}/chapters/${o.chapter_id}`} className="font-display text-base text-accent-strong hover:underline">
-                      {o.chapter_number ? `Chapter ${o.chapter_number}` : 'Chapter'}{o.title ? ` · ${o.title}` : ''}
-                    </Link>
-                    <span className="rounded-md bg-paper-sunken px-2 py-0.5 text-xs text-ink-soft">reads differently</span>
-                  </div>
-                  <ul className="mb-3 space-y-1">
-                    {o.reasons.map((r) => (
-                      <li key={r.metric} className="text-sm text-ink">• {r.text}</li>
-                    ))}
-                  </ul>
-                  <p className="text-sm text-ink-soft">{o.question}</p>
-                </div>
-              ))}
+              {report.outliers.map((o) => (<OutlierCard key={o.section_id} bookId={book.id} o={o} />))}
             </div>
           )}
         </>

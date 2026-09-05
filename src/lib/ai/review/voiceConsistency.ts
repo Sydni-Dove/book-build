@@ -55,6 +55,36 @@ function sectionMetrics(section_id: string, content: string): { words: number; m
   };
 }
 
+// Pull the specific sentences that drive a flag, so the writer sees the actual
+// phrases (not just numbers) without opening the chapter.
+const LY_NONADVERB = new Set(['only', 'family', 'reply', 'holy', 'ugly', 'early', 'lonely', 'likely', 'lovely', 'friendly', 'silly', 'daily', 'ally', 'rally', 'apply', 'supply', 'bully', 'fully']);
+function splitSentences(text: string): string[] {
+  return (text ?? '').replace(/\s+/g, ' ').split(/(?<=[.!?…])["'”’)\]]?\s+/).map((s) => s.trim()).filter(Boolean);
+}
+const wc = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0);
+const lyCount = (s: string) => (s.toLowerCase().match(/\b[a-z]+ly\b/g) ?? []).filter((w) => !LY_NONADVERB.has(w)).length;
+const clip = (s: string, n = 220) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
+
+// Given a section's content and the metrics that drifted HIGH, return up to 3
+// example sentences that best illustrate the issue (longest, most adverb-heavy,
+// or fragment runs). Lower-direction drifts have no single phrase to show.
+function exampleSentences(content: string, reasons: { metric: VoiceMetric; direction: 'higher' | 'lower' }[]): string[] {
+  const high = new Set(reasons.filter((r) => r.direction === 'higher').map((r) => r.metric));
+  const sents = splitSentences(content);
+  const picks: string[] = [];
+  const add = (s: string) => { const t = clip(s); if (t && !picks.includes(t)) picks.push(t); };
+  if (high.has('avg_words_per_sentence') || high.has('long_sentence_rate')) {
+    [...sents].sort((a, b) => wc(b) - wc(a)).slice(0, 3).filter((s) => wc(s) >= 20).forEach(add);
+  }
+  if (high.has('adverb_rate')) {
+    [...sents].sort((a, b) => lyCount(b) - lyCount(a)).filter((s) => lyCount(s) >= 1).slice(0, 3).forEach(add);
+  }
+  if (high.has('fragment_rate')) {
+    sents.filter((s) => wc(s) > 0 && wc(s) <= 3).slice(0, 4).forEach(add);
+  }
+  return picks.slice(0, 3);
+}
+
 export type VoiceOutlierReason = { metric: VoiceMetric; label: string; value: number; baseline: number; delta: number; z: number; direction: 'higher' | 'lower'; text: string };
 export type VoiceReport = {
   status: 'ok' | 'insufficient_text';
@@ -63,7 +93,7 @@ export type VoiceReport = {
   section_count: number;
   compared_count: number;
   sections: { chapter_number: number | null; title: string | null; section_id: string; chapter_id: string; words: number; metrics: Metrics; comparable: boolean; outlier: boolean; score: number }[];
-  outliers: { chapter_number: number | null; title: string | null; section_id: string; chapter_id: string; score: number; question: string; reasons: VoiceOutlierReason[] }[];
+  outliers: { chapter_number: number | null; title: string | null; section_id: string; chapter_id: string; score: number; question: string; reasons: VoiceOutlierReason[]; examples: string[] }[];
   summary: { consistent: boolean; outlier_count: number; note: string };
 };
 
@@ -112,20 +142,20 @@ export function computeVoiceConsistency(input: VoiceSectionInput[]): VoiceReport
       }
     }
     const score = +reasons.reduce((a, x) => a + Math.min(Math.abs(x.z), 20), 0).toFixed(2);
-    return { chapter_number: r.chapter_number, title: r.title, section_id: r.section_id, chapter_id: r.chapter_id, words: r.words, metrics: r.metrics, comparable: isComparable, outlier: reasons.length > 0, score, reasons };
+    return { chapter_number: r.chapter_number, title: r.title, section_id: r.section_id, chapter_id: r.chapter_id, content: r.content, words: r.words, metrics: r.metrics, comparable: isComparable, outlier: reasons.length > 0, score, reasons };
   });
 
   const outliers = sections
     .filter((s) => s.outlier)
     .sort((a, b) => b.score - a.score)
-    .map((s) => ({ chapter_number: s.chapter_number, title: s.title, section_id: s.section_id, chapter_id: s.chapter_id, score: s.score, reasons: s.reasons, question: 'Is this shift intentional for this moment, or worth a look so the voice reads consistently?' }));
+    .map((s) => ({ chapter_number: s.chapter_number, title: s.title, section_id: s.section_id, chapter_id: s.chapter_id, score: s.score, reasons: s.reasons, examples: exampleSentences(s.content, s.reasons), question: 'Is this shift intentional for this moment, or worth a look so the voice reads consistently?' }));
 
   return {
     status: 'ok',
     book_baseline: baseline,
     section_count: rows.length,
     compared_count: comparable.length,
-    sections: sections.map(({ reasons, ...rest }) => rest),
+    sections: sections.map(({ reasons, content, ...rest }) => rest),
     outliers,
     summary: {
       consistent: outliers.length === 0,

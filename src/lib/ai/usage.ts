@@ -37,12 +37,13 @@ export type AiFeature =
   | 'plan_new_book_possibilities'
   | 'plan_new_book_finish'
   | 'plan_chapter'
-  | 'plan_chapter_finish';
+  | 'plan_chapter_finish'
+  | 'voice_revision';
 
 const AI_FEATURES: readonly AiFeature[] = [
   'deep_review', 'development_interview', 'working_note_development', 'help_think_through', 'development_finish',
   'continue_questions', 'plan_new_book', 'plan_new_book_possibilities',
-  'plan_new_book_finish', 'plan_chapter', 'plan_chapter_finish'
+  'plan_new_book_finish', 'plan_chapter', 'plan_chapter_finish', 'voice_revision'
 ];
 
 /** Coerce an untrusted string (e.g. from a request body) to a known feature. */
