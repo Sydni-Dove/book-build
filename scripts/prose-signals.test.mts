@@ -49,6 +49,34 @@ for (const control of ['She called not to take him back, but to clear the air.',
   check(`ordinary contrast NOT strong-flagged: "${control.slice(0, 34)}…"`, !k.includes('contrastive_negation'));
 }
 
+// --- Voice Pass swaps: stacked intensity, abstract description, long speech --
+// Swap #1 — ornamental intensifiers travelling in groups.
+check('intensity: stacked in one sentence', kindsOf('The walls stretched endlessly, lined with gleaming weapons and shining armor.').kinds.includes('stacked_intensity'));
+check('intensity: spread across a paragraph', kindsOf('She stood in a vast armory. The light was dazzling. The ceiling was towering.').kinds.includes('stacked_intensity'));
+check('intensity: single ornamental word NOT flagged', !kindsOf('The garment was dazzling white.').kinds.includes('stacked_intensity'));
+// Swap #3 — a person described in abstractions instead of behavior.
+check('descriptor: "imposing yet warm"', kindsOf('His presence was imposing yet warm, and people trusted him.').kinds.includes('abstract_descriptor'));
+check('descriptor: two abstractions in one sentence', kindsOf('She was regal, statuesque, and everyone noticed.').kinds.includes('abstract_descriptor'));
+check('descriptor: ordinary yet/but NOT flagged', !kindsOf('It was raining but she went anyway.').kinds.includes('abstract_descriptor'));
+// Swap #2A — long DIVINE / prophetic speech (flag), short divine speech (silent),
+// and ordinary long dramatic dialogue with no divine cue (silent).
+check('divine: long declaration flagged', kindsOf('"You are a wonder to the world. You will stand before leaders and rulers. Leadership rests on you like a garment. I give you access to the King."').kinds.includes('long_divine_speech'));
+check('divine: first-person markers flagged', kindsOf('"With Me all things are possible. You have My angels backing you. My Spirit is always in you. Boldly declare My Name."').kinds.includes('long_divine_speech'));
+check('divine: short divine speech NOT flagged', !kindsOf('"Be not afraid, my daughter," He said.').kinds.includes('long_divine_speech'));
+check('divine: long ordinary dramatic dialogue NOT flagged', !kindsOf('"I waited for you at the station for an hour. I called twice and you never picked up. I thought something had happened to you. I was terrified, and you just forgot. How could you do that to me again?"').kinds.some((k) => k === 'long_divine_speech' || k === 'long_teaching_speech'));
+// Swap #2B — long TEACHING dialogue (character explaining/interpreting).
+check('teaching: long quoted teaching flagged', kindsOf('"The armor of God is not literal. Each piece represents a spiritual truth. The belt of truth means honesty before God. The breastplate stands for the righteousness given by grace. This is why Paul lists them in order for us."').kinds.includes('long_teaching_speech'));
+// Swap #4 — long UNQUOTED teaching / exposition run (narration) flags; concrete
+// action and concrete description stay silent.
+check('exposition: narrated teaching run flagged', kindsOf('The armor of God is not literal. Each piece represents a spiritual truth. The belt of truth means honesty before God. The breastplate represents the righteousness given by grace. This is why the order matters, and therefore the believer puts on each piece daily.').kinds.includes('long_exposition_run'));
+check('exposition: concrete action NOT flagged', !kindsOf('She ran down the hall. The door slammed behind her. Her bag caught on the railing. She yanked it free and kept going. The stairwell was dark.').kinds.includes('long_exposition_run'));
+check('exposition: narrative causation NOT flagged', !kindsOf('She left because she was tired. She cried because it hurt. She stayed home because the roads were bad. She called because she missed him. She waited because she had to.').kinds.includes('long_exposition_run'));
+// Generic scene-setting — stock dramatic shorthand flags; concrete scene-specific
+// sensory detail stays silent.
+check('scene-setting: "her heart pounded" flagged', kindsOf('She reached the top step and her heart pounded.').kinds.includes('generic_scene_setting'));
+check('scene-setting: "the wind howled" flagged', kindsOf('The wind howled through the empty streets.').kinds.includes('generic_scene_setting'));
+check('scene-setting: concrete sensory detail NOT flagged', !kindsOf('The hallway smelled faintly of coffee, old hymnals, and wood polish.').kinds.includes('generic_scene_setting'));
+
 // --- LIVE scan of real Awakened prose --------------------------------------
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL, key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 if (url && key) {

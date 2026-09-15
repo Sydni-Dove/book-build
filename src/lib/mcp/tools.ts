@@ -13,6 +13,7 @@ import { callOpenAIStructured } from '@/lib/ai/client';
 import { isAiUsageLimitError } from '@/lib/ai/usage';
 import { computeVoiceConsistency, type VoiceSectionInput } from '@/lib/ai/review/voiceConsistency';
 import { computePhrasing, type PhrasingSectionInput } from '@/lib/ai/review/phrasing';
+import { DEFAULT_BOOK_TYPE, type BookType, type CheckContext, type WritingPreferences } from '@/lib/ai/review/checkConfig';
 import {
   selectActiveModules,
   buildGuidanceText,
@@ -1484,9 +1485,29 @@ export async function getVoiceReport(supabase: SB, args: { book_id: string }): P
 // Whole-manuscript PHRASING check — deterministic, read-only. Surfaces the
 // generic/overwritten-prose tells (the "not X, but Y" cadence, significance
 // words, filler, repeated openers) with the actual lines. No LLM, no writes.
+// Resolve the check-applicability context for a book: its book_type (book-level)
+// and the authenticated user's profile writing preferences. Defensive — if the
+// 0018 columns aren't applied yet, both fall back to system defaults (fiction),
+// so nothing breaks and Awakened's checks stay on. Reads are RLS-scoped, so this
+// only ever sees the current user's own book row and own profile row.
+async function resolveCheckContext(supabase: SB, book_id: string): Promise<CheckContext> {
+  let bookType: BookType = DEFAULT_BOOK_TYPE;
+  const bt = await supabase.from('books').select('book_type').eq('id', book_id).maybeSingle();
+  if (!bt.error && bt.data && (bt.data as { book_type?: string }).book_type) bookType = (bt.data as { book_type: BookType }).book_type;
+  let profile: WritingPreferences | null = null;
+  const { data: userData } = await supabase.auth.getUser();
+  const uid = userData.user?.id;
+  if (uid) {
+    const pr = await supabase.from('profiles').select('writing_preferences').eq('id', uid).maybeSingle();
+    if (!pr.error && pr.data && (pr.data as { writing_preferences?: unknown }).writing_preferences) profile = (pr.data as { writing_preferences: WritingPreferences }).writing_preferences;
+  }
+  return { bookType, profile };
+}
+
 export async function getPhrasingReport(supabase: SB, args: { book_id: string }): Promise<ToolResult> {
   const r = await resolveBook(supabase, args.book_id);
   if (r.status !== 'ok') return revisionResult('NOT_FOUND', { detail: 'Book not found or not permitted.' });
+  const checkCtx = await resolveCheckContext(supabase, args.book_id);
   const { data: chapters } = await supabase.from('chapters').select('id, chapter_number, title, sort_order').eq('book_id', args.book_id).is('archived_at', null);
   const chList = (chapters ?? []) as { id: string; chapter_number: number | null; title: string; sort_order: number }[];
   const chById = new Map(chList.map((c) => [c.id, c]));
@@ -1501,8 +1522,8 @@ export async function getPhrasingReport(supabase: SB, args: { book_id: string })
     .filter((x): x is { s: typeof secs[number]; ch: NonNullable<ReturnType<typeof chById.get>> } => !!x.ch)
     .sort((a, b) => a.ch.sort_order - b.ch.sort_order || a.s.sort_order - b.s.sort_order)
     .map(({ s, ch }) => ({ section_id: s.id, chapter_id: s.chapter_id, chapter_number: ch.chapter_number, title: ch.title, content: s.content ?? '' }));
-  const report = computePhrasing(input, (chars ?? []).map((c) => c.name));
-  return revisionResult('ok', { book: { id: r.book.id, title: r.book.title }, ...report }, report.note);
+  const report = computePhrasing(input, (chars ?? []).map((c) => c.name), checkCtx);
+  return revisionResult('ok', { book: { id: r.book.id, title: r.book.title, book_type: checkCtx.bookType ?? DEFAULT_BOOK_TYPE }, ...report }, report.note);
 }
 
 export async function listReviewFindings(supabase: SB, args: { book_id: string }): Promise<ToolResult> {
