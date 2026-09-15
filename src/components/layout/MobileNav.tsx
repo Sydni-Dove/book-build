@@ -48,6 +48,9 @@ export function MobileNav() {
             <Link href={`${base}/versions`} onClick={() => setDrawerOpen(false)} className="mb-1 block rounded-md px-3 py-2 font-medium text-ink hover:bg-black/5">
               Versions
             </Link>
+            <Link href={`${base}/history`} onClick={() => setDrawerOpen(false)} className="mb-1 block rounded-md px-3 py-2 font-medium text-ink hover:bg-black/5">
+              History
+            </Link>
             <Link href={`${base}/tools`} onClick={() => setDrawerOpen(false)} className="mb-3 block rounded-md px-3 py-2 font-medium text-ink hover:bg-black/5">
               Tools
             </Link>
