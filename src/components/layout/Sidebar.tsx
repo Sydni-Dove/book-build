@@ -86,6 +86,14 @@ export function Sidebar() {
           Versions
         </Link>
         <Link
+          href={`${base}/history`}
+          className={`mb-1 block rounded-md px-3 py-2 font-medium ${
+            isActive('history') ? 'bg-accent-soft text-accent-strong' : 'text-ink hover:bg-black/5'
+          }`}
+        >
+          History
+        </Link>
+        <Link
           href={`${base}/tools`}
           className={`mb-1 block rounded-md px-3 py-2 font-medium ${
             isActive('tools') ? 'bg-accent-soft text-accent-strong' : 'text-ink hover:bg-black/5'

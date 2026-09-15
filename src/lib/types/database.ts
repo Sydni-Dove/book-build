@@ -7,6 +7,10 @@
 // this file — hand edits below should survive that diff untouched.
 
 export type BookStatus = 'Planning' | 'Drafting' | 'Revising' | 'Completed';
+// Coarse manuscript type that gates book-type-specific review checks (migration
+// 0018). Fiction/narrative books run the narrative Voice Pass checks; nonfiction
+// does not. See src/lib/ai/review/checkConfig.ts for the resolution rules.
+export type BookType = 'fiction' | 'nonfiction';
 export type ChapterStatus = 'Not Started' | 'Drafting' | 'Needs Review' | 'Reviewed' | 'Complete';
 export type SectionStatus = 'Draft' | 'Needs Attention' | 'Reviewed' | 'Complete';
 export type ThreadStatus = 'Active' | 'Dormant' | 'Resolved' | 'Planned Later';
@@ -80,6 +84,7 @@ export type Book = {
   title: string;
   subtitle: string | null;
   genre: string | null;
+  book_type: BookType;
   target_audience: string | null;
   pov: string | null;
   tense: string | null;
@@ -681,6 +686,10 @@ type TableDef<Row, RequiredInsert extends keyof Row = never> = {
 type Profile = {
   id: string;
   display_name: string | null;
+  // Per-user, cross-book writing/editing preferences (migration 0018). Shape is
+  // WritingPreferences in src/lib/ai/review/checkConfig.ts. Scoped to this user
+  // by RLS (profiles.id = auth.uid()); never global, never another user's books.
+  writing_preferences: Record<string, unknown>;
   created_at: string;
 };
 

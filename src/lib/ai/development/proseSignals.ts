@@ -72,6 +72,45 @@ const STOP = new Set(['the','a','an','and','or','but','of','to','in','on','at','
 
 const INSISTENCE = ['authentic','genuine','sacred','holy','real','raw','powerful','profound','meaningful','undeniable','palpable','tangible','pure','honest','vulnerable'];
 const FILLERS = ['in order to','the fact that','began to','started to','was able to','were able to','in a way','sort of','kind of','a bit of','the sound of','the feeling of'];
+// Ornamental intensity words that read as generic/"smoothed" when they travel in
+// groups (Voice Pass swap #1: "vast, endlessly, gleaming, majestic, dazzling…").
+const INTENSITY = ['vast','endless','endlessly','boundless','gleaming','gleam','shimmering','shimmer','glowing','radiant','radiance','dazzling','majestic','magnificent','luminous','resplendent','towering','breathtaking','ethereal','otherworldly','shining','glistening','glorious','sprawling','infinite','immense'];
+// Abstract person-descriptors better shown through specific behavior (Voice Pass
+// swap #3: "imposing yet warm" → what does he DO that makes people feel that?).
+const ABSTRACT_DESC = ['imposing','commanding','striking','mysterious','magnetic','enigmatic','regal','statuesque','formidable','alluring','captivating','intimidating','authoritative','charismatic','poised','graceful','elegant','stoic','aloof','effortless'];
+
+// Divine / prophetic speaker attribution (Voice Pass swap #2A). Precision-first:
+// a long quoted run is divine speech ONLY with an attribution cue near it or a
+// first-person divine marker inside it — never length alone. Ordinary long human
+// dialogue carries none of these and is left untouched.
+const DIVINE_ATTR = /\b(the Lord|Lord said|Jesus|the Father|the Holy Spirit|the Spirit of God|an angel|the angel of the Lord|God said|says the Lord|thus says the Lord|the voice of God)\b/;
+const DIVINE_INQUOTE = /\bMy (Spirit|angels?|Name|Kingdom|word|daughter|son|child|children|people|beloved|hand|glory)\b/;
+const DIVINE_DECLARE = /\b(signs,? wonders|be not afraid|fear not|I am the|I have prepared|I give you|I have given you|I hem you|I have called you)\b/i;
+// Teaching / interpretation vocabulary (Voice Pass swaps #2B and #4): explanatory
+// or scripture-exposition language that marks prose as teaching rather than
+// narrative action or ordinary conversation.
+const TEACHING_CUE = /\b(means|meaning|represents?|symboli[sz]es?|signif(?:y|ies)|in other words|the point is|this is why|that is why|because of this|understand that|remember that|scripture says|the word says|it says|the text|the passage|the verse|the Greek|the Hebrew|stands for|is a picture of|reminds us|reveals that|the reason)\b/i;
+// Interpretive connectives, counted (global) to gauge sustained exposition.
+const EXPLANATORY_G = /\b(means?|represents?|because|therefore|thus|in other words|this is why|that is why|signif(?:y|ies)|reveals?|reminds us|stands for|is a picture of|the reason|which is why|so that)\b/gi;
+
+// Generic stock scene-setting constructions (Voice Pass: generic scene-setting).
+// A TIGHT, high-confidence list of interchangeable dramatic shorthand — NOT a
+// blanket banned-phrase list. Surfaced for the writer to weigh in context; the
+// engine never removes or rewrites them.
+const STOCK_SCENE: RegExp[] = [
+  /\btime (?:seemed to slow|slowed (?:down|to a crawl)|stood still|froze)\b/i,
+  /\b(?:her|his|their) heart (?:was )?(?:pound(?:ed|ing)|rac(?:ed|ing)|hammer(?:ed|ing)|thudd(?:ed|ing)|skipped a beat|leapt|sank)\b/i,
+  /\ba (?:chill|shiver|shudder) (?:ran|crawled|went) (?:down|up) (?:her|his|their) spine\b/i,
+  /\b(?:her|his|their) blood ran cold\b/i,
+  /\b(?:her|his|their) breath (?:caught|hitched)\b/i,
+  /\bsilence (?:filled|fell over|fell across|descended (?:on|over)|hung (?:in|over)|settled over) the room\b/i,
+  /\bthe (?:wind|storm) howled\b/i,
+  /\bthe air (?:grew|went|turned|hung) (?:thick|cold|heavy|still)\b/i,
+  /\b(?:her|his|their) stomach (?:dropped|churned|twisted|knotted)\b/i,
+  /\bgoo?sebumps (?:rose|prickled|erupted)\b/i,
+  /\b(?:her|his|their) pulse (?:quickened|raced|pounded)\b/i,
+  /\b(?:her|his|their) mouth went dry\b/i
+];
 // -ly words that usually aren't manner adverbs
 const LY_NONADVERB = new Set(['only','family','reply','holy','ugly','early','lonely','likely','lovely','friendly','silly','daily','ally','rally','italy','apply','supply','bully','fully']);
 
@@ -184,6 +223,75 @@ function paragraphSignals(text: string, names: Set<string>): ProseSignal[] {
     freq[w] = (freq[w] ?? 0) + 1;
   }
   for (const [w, n] of Object.entries(freq)) if (n >= 3) signals.push({ kind: 'repeated_term', evidence: `"${w}" ×${n}`, count: n });
+
+  // Stacked intensity words (Voice Pass swap #1). Ornamental intensifiers rarely
+  // need to travel in groups — flag a sentence carrying >=2, or a paragraph
+  // spreading >=3 across sentences (dedup so a spread paragraph isn't double-flagged).
+  const intensityBySentence = sentences.map((s) => INTENSITY.filter((w) => new RegExp(`\\b${w}\\b`, 'i').test(s)));
+  let intensityFlagged = false;
+  intensityBySentence.forEach((hits) => {
+    if (hits.length >= 2) { signals.push({ kind: 'stacked_intensity', evidence: hits.join(', '), count: hits.length }); intensityFlagged = true; }
+  });
+  if (!intensityFlagged) {
+    const spread = Array.from(new Set(intensityBySentence.flat().map((w) => w.toLowerCase())));
+    if (spread.length >= 3) signals.push({ kind: 'stacked_intensity', evidence: spread.join(', '), count: spread.length });
+  }
+
+  // Abstract character description (Voice Pass swap #3). High precision: the
+  // "adjA yet/but adjB" pairing where a descriptor is abstract ("imposing yet
+  // warm"), or >=2 abstract descriptors in one sentence. Not lone adjectives.
+  const descRe = /\b([A-Za-z]+)\s+(?:yet|but)\s+([A-Za-z]+)\b/gi;
+  for (const m of text.matchAll(descRe)) {
+    const a = (m[1] ?? '').toLowerCase(), b = (m[2] ?? '').toLowerCase();
+    if (ABSTRACT_DESC.includes(a) || ABSTRACT_DESC.includes(b)) signals.push({ kind: 'abstract_descriptor', evidence: m[0].replace(/\s+/g, ' ').slice(0, 120) });
+  }
+  for (const s of sentences) {
+    const hits = ABSTRACT_DESC.filter((w) => new RegExp(`\\b${w}\\b`, 'i').test(s));
+    if (hits.length >= 2 && !/\b(?:yet|but)\b/i.test(s)) signals.push({ kind: 'abstract_descriptor', evidence: hits.join(', '), count: hits.length });
+  }
+
+  // Generic scene-setting (Voice Pass). Tight, high-confidence stock dramatic
+  // constructions functioning as interchangeable shorthand ("her heart pounded",
+  // "the wind howled"). Context and the writer decide — nothing is auto-changed.
+  for (const re of STOCK_SCENE) {
+    const m = text.match(re);
+    if (m) signals.push({ kind: 'generic_scene_setting', evidence: m[0].replace(/\s+/g, ' ').slice(0, 80) });
+  }
+
+  // Long DIVINE / prophetic or TEACHING speech (Voice Pass swaps #2A/#2B). Only
+  // a quoted span that runs long AND carries a divine attribution/marker
+  // (long_divine_speech) or explanatory teaching vocabulary (long_teaching_speech).
+  // Ordinary long dialogue — confession, storytelling, argument, banter — has
+  // neither cue and is never flagged on length alone.
+  for (const m of text.matchAll(/[“"]([^”"]{40,})[”"]/g)) {
+    const body = (m[1] ?? '').trim();
+    const spoken = splitSentences(body);
+    const words = wordCount(body);
+    if (spoken.length < 4 && words < 45) continue; // too short to be a monologue
+    const divine = DIVINE_ATTR.test(text) || DIVINE_INQUOTE.test(body) || DIVINE_DECLARE.test(body);
+    if (divine) {
+      signals.push({ kind: 'long_divine_speech', evidence: body.replace(/\s+/g, ' ').slice(0, 90), count: spoken.length });
+    } else if ((spoken.length >= 5 || words >= 60) && TEACHING_CUE.test(body)) {
+      signals.push({ kind: 'long_teaching_speech', evidence: body.replace(/\s+/g, ' ').slice(0, 90), count: spoken.length });
+    }
+  }
+
+  // Long UNQUOTED teaching / exposition run (Voice Pass swap #4). Sustained
+  // explanatory/interpretive NARRATION — not dialogue, not action: a low-dialogue
+  // paragraph of >=5 sentences with several interpretive connectives AND teaching
+  // vocabulary. Concrete description and action scenes carry neither and stay
+  // silent; ordinary narrative causation ("she left because…") lacks the teaching
+  // cue and is not flagged.
+  {
+    const dq = [...text.matchAll(/[“"]([^”"]*)[”"]/g)].reduce((n, mm) => n + (mm[1]?.length ?? 0), 0);
+    const dialogueRatio = text.length ? dq / text.length : 0;
+    if (sentences.length >= 5 && dialogueRatio < 0.2) {
+      const explanatory = (text.match(EXPLANATORY_G) ?? []).length;
+      if (explanatory >= 2 && TEACHING_CUE.test(text)) {
+        signals.push({ kind: 'long_exposition_run', evidence: sentences.slice(0, 2).join(' ').replace(/\s+/g, ' ').slice(0, 90), count: sentences.length });
+      }
+    }
+  }
 
   return signals;
 }

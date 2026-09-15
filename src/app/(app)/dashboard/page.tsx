@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { HomeView } from '@/components/dashboard/HomeView';
-import type { Book } from '@/lib/types/database';
+import type { Book, BookType } from '@/lib/types/database';
 
 export default function DashboardPage() {
   const supabase = createClient();
@@ -20,14 +20,14 @@ export default function DashboardPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function onCreate(mode: 'new' | 'import', title: string) {
+  async function onCreate(mode: 'new' | 'import', title: string, bookType: BookType) {
     const {
       data: { user }
     } = await supabase.auth.getUser();
     if (!user) return router.push('/login');
     const { data, error } = await supabase
       .from('books')
-      .insert({ user_id: user.id, title, status: 'Planning' })
+      .insert({ user_id: user.id, title, status: 'Planning', book_type: bookType })
       .select()
       .single();
     if (error || !data) return;

@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import type { Book } from '@/lib/types/database';
+import type { Book, BookType } from '@/lib/types/database';
 import { StatusPill } from '@/components/ui';
 
 // Presentational Home / library. The prototype has no dashboard screen, so this
@@ -28,22 +28,26 @@ export function HomeView({
   onSignOut
 }: {
   books: Book[] | null;
-  onCreate: (mode: 'new' | 'import', title: string) => void;
+  onCreate: (mode: 'new' | 'import', title: string, bookType: BookType) => void;
   onSignOut: () => void;
 }) {
   const [mode, setMode] = useState<Mode>(null);
   const [title, setTitle] = useState('');
+  // '' = not yet chosen. We never pre-pick a type, so a new book is only ever
+  // fiction/nonfiction because the author said so — not because Book Build inferred it.
+  const [bookType, setBookType] = useState<BookType | ''>('');
   const [busy, setBusy] = useState(false);
 
   function submit() {
     const t = title.trim();
-    if (!t || !mode || busy) return;
+    if (!t || !bookType || !mode || busy) return;
     setBusy(true);
-    onCreate(mode, t);
+    onCreate(mode, t, bookType);
   }
   function close() {
     setMode(null);
     setTitle('');
+    setBookType('');
     setBusy(false);
   }
 
@@ -176,6 +180,19 @@ export function HomeView({
                 className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-base text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
               />
             </label>
+            <label className="mt-4 block">
+              <span className="mb-1 block text-sm font-medium text-ink">Book type</span>
+              <select
+                value={bookType}
+                onChange={(e) => setBookType(e.target.value as BookType | '')}
+                className="w-full rounded-lg border border-line bg-white px-3 py-2.5 text-base text-ink outline-none focus:border-accent focus:ring-1 focus:ring-accent"
+              >
+                <option value="" disabled>Select book type</option>
+                <option value="fiction">Fiction / Narrative</option>
+                <option value="nonfiction">Nonfiction</option>
+              </select>
+              <span className="mt-1 block text-xs text-ink-faint">Sets which review checks apply. You can change it later in book settings.</span>
+            </label>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 onClick={close}
@@ -185,7 +202,7 @@ export function HomeView({
               </button>
               <button
                 onClick={submit}
-                disabled={!title.trim() || busy}
+                disabled={!title.trim() || !bookType || busy}
                 className="min-h-[44px] rounded-lg bg-accent px-5 py-2 text-sm font-semibold text-[#F6F3EC] transition hover:bg-accent-strong disabled:opacity-50"
               >
                 {busy ? 'Working…' : mode === 'new' ? 'Create book' : 'Continue to import'}

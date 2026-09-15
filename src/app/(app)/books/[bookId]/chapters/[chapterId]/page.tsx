@@ -10,6 +10,7 @@ import { ChapterReader } from '@/components/editor/ChapterReader';
 import { SectionEditor } from '@/components/editor/SectionEditor';
 import { HelpMeContinuePanel } from '@/components/ai/HelpMeContinuePanel';
 import { DevelopThisPanel } from '@/components/ai/DevelopThisPanel';
+import { ChapterReviewPanel } from '@/components/review/ChapterReviewPanel';
 import { SectionVersionUpload } from '@/components/versions/SectionVersionUpload';
 import { SectionVersionHistory } from '@/components/versions/SectionVersionHistory';
 import { ChapterVersionUpload } from '@/components/versions/ChapterVersionUpload';
@@ -326,8 +327,8 @@ export default function ChapterWorkspacePage() {
           <DevelopThisPanel bookId={book.id} chapterId={chapter.id} sectionId={currentSection?.id} />
         )}
         {activeTab === 'describe' && <ComingSoon label="Describe This" />}
-        {activeTab === 'review' && <ComingSoon label="Review Section" />}
-        {activeTab === 'continuity' && <ComingSoon label="Continuity Check" />}
+        {activeTab === 'review' && <ChapterReviewPanel bookId={book.id} chapterId={chapter.id} family="review" />}
+        {activeTab === 'continuity' && <ChapterReviewPanel bookId={book.id} chapterId={chapter.id} family="continuity" />}
       </AIPanel>
     </div>
   );

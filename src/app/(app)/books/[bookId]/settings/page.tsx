@@ -5,9 +5,13 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { useBook } from '@/components/layout/BookContext';
 import { Button, Card, Field, Input, Textarea } from '@/components/ui';
-import type { BookStatus, SuggestionLevel } from '@/lib/types/database';
+import type { BookStatus, BookType, SuggestionLevel } from '@/lib/types/database';
 
 const STATUSES: BookStatus[] = ['Planning', 'Drafting', 'Revising', 'Completed'];
+const BOOK_TYPES: { value: BookType; label: string; hint: string }[] = [
+  { value: 'fiction', label: 'Fiction / Narrative', hint: 'Runs narrative prose checks (scene-setting, character description, divine/teaching monologue, intensity).' },
+  { value: 'nonfiction', label: 'Nonfiction', hint: 'Runs only the universal writing checks — the narrative-specific ones stay off.' }
+];
 const LEVELS: { value: SuggestionLevel; label: string; hint: string }[] = [
   { value: 'light', label: 'Light', hint: 'Grammar and hard continuity contradictions only.' },
   { value: 'guided', label: 'Guided', hint: 'Questions, description help, continuity, and reviews. (Default)' },
@@ -48,6 +52,7 @@ export default function BookSettingsPage() {
     writing_unit_pref: book.writing_unit_pref
   });
   const [toggles, setToggles] = useState(book.ai_toggles ?? defaultToggles());
+  const [bookType, setBookType] = useState<BookType>(book.book_type ?? 'fiction');
   const [saving, setSaving] = useState(false);
 
   async function save() {
@@ -56,6 +61,9 @@ export default function BookSettingsPage() {
       .from('books')
       .update({ ...form, ai_toggles: toggles })
       .eq('id', book.id);
+    // book_type is saved separately and its error is tolerated, so Settings keeps
+    // working even if migration 0018 (which adds the column) hasn't run yet.
+    await supabase.from('books').update({ book_type: bookType }).eq('id', book.id);
     setSaving(false);
     router.refresh();
   }
@@ -103,6 +111,23 @@ export default function BookSettingsPage() {
               </option>
             ))}
           </select>
+        </Field>
+        <Field label="Book type" hint="Determines which review checks apply. Fiction/Narrative adds the narrative prose checks; Nonfiction runs only the universal ones.">
+          <div className="space-y-2">
+            {BOOK_TYPES.map((t) => (
+              <label key={t.value} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  checked={bookType === t.value}
+                  onChange={() => setBookType(t.value)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="font-medium text-ink">{t.label}</span> — <span className="text-ink-soft">{t.hint}</span>
+                </span>
+              </label>
+            ))}
+          </div>
         </Field>
         <Field label="Book description / premise">
           <Textarea rows={3} value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} />
