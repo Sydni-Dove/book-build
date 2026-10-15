@@ -129,3 +129,10 @@ Proposed categories (PROPOSAL — awaiting user approval, none executed):
 - NEEDS REVIEW: all journal-app branch previews (check each branch is merged on GitHub first — the open-beta features are not on main), vocal-arrangement-studio production source, duplicate project pairs.
 
 Estimated recovery: not measurable with the available tools (per-deployment size is not exposed). Next steps: user confirms the 100% meter, then approves a list.
+
+### Addendum (2026-10-15, later) — meter confirmed, correction
+
+- **The meter at 100% is Deployment Storage: 10.08 GB of 10 GB (free tier).** From the user's Usage-page screenshots: Functions Storage 637.8 MB, Build Artifacts 0 B, Blob/Data storage 0 B, Function Invocations 761, Build CPU 32h 36m. So deleting deployments is the correct lever; Blob/cache/artifacts are not contributing.
+- **Correction:** the stale aliases in the alias list point at deployments that return 404 (already expired/deleted), so the deployment listing of 87 appears complete. The earlier "listing may be incomplete" note is withdrawn.
+- Per-deployment size is not exposed by the MCP tools (git deployments have no file tree), so recovery can only be estimated: 10.08 GB / 87 deployments is about 115 MB average. Target: get comfortably below 10 GB (about 8 GB), i.e. roughly 15-20 deployments.
+- Still read-only. No deletions have been run; awaiting approval of the tiered list.
