@@ -136,3 +136,106 @@ Estimated recovery: not measurable with the available tools (per-deployment size
 - **Correction:** the stale aliases in the alias list point at deployments that return 404 (already expired/deleted), so the deployment listing of 87 appears complete. The earlier "listing may be incomplete" note is withdrawn.
 - Per-deployment size is not exposed by the MCP tools (git deployments have no file tree), so recovery can only be estimated: 10.08 GB / 87 deployments is about 115 MB average. Target: get comfortably below 10 GB (about 8 GB), i.e. roughly 15-20 deployments.
 - Still read-only. No deletions have been run; awaiting approval of the tiered list.
+
+---
+
+## Vercel storage audit v2 (2026-10-15) — VERIFIED FINDINGS + CLEANUP PLAN
+
+**Status: AUDIT ONLY. NOTHING DELETED, DEPLOYED, MERGED OR RECONFIGURED. APPROVAL: PENDING (no list approved).**
+This section supersedes the "meter not confirmed" and "listing incomplete" notes above; earlier completed findings are kept.
+
+### 1. Metric at 100% (source: Vercel "approaching your limits" email + Usage page screenshots supplied by the user; the audit session has no dashboard access)
+- **Deployment Storage: 10.08 GB used / 10 GB included (Hobby/free team `sydni-doves-projects`).** Over by about 0.08 GB.
+- Not the cause: Functions Storage 637.8 MB (separate line), Build Artifacts 0 B, Blob 0 B, Blob/Data Storage 0 B, Edge Function/Middleware 0, Function Invocations 761, Build CPU 32h36m. Build cache is not a metered line here, so clearing caches would not help.
+- Billing period: the Usage page showed "Last 30 days, Sep 15 5pm - Oct 15 5pm". Deployment Storage is a stock (what is stored now), so the billing-cycle start was not confirmed.
+- **Per-project Deployment/Functions Storage: NOT AVAILABLE.** Neither the Vercel API tools nor the observability metrics expose it. Needs the Usage page "Deployment Storage" project breakdown (user screenshot).
+
+### 2. Deployment inventory: 89 across 16 projects (state counts: failed/canceled/blocked 10)
+book-build now has 3 ERROR deployments: 1 is the open-PR #1 tip (`feat/chapter-review-continuity-history`), **2 were created by this audit's own pushes** to `claude/vercel-storage-cleanup-yzycj3` (Vercel builds every pushed branch and book-build's preview build fails). Pushes of this and later commits use `[skip ci]`; verify that suppressed the build.
+
+### 3. Production map (resolved by hostname; the newest deployment is NOT always the one serving)
+| Project | Serving production deployment | Branch @ commit | Domain(s) | Notes |
+|---|---|---|---|---|
+| dove-expressions-journal-app (Hearing God) | dpl_EaUzoRp4 | main @ 5d8aa6a (PR #56) | **app.doveexpressions.org**, dove-expressions-journal-app.vercel.app | == main HEAD |
+| journal-color-studio | dpl_5pnJ1oDy | main @ 438c941 | journal-color-studio.vercel.app | == main HEAD |
+| dove-product-studio | dpl_8dqUK2Lt | main @ 047aa23 | dove-product-studio.vercel.app | **One commit behind main**: the 438c941 build (dpl_ExUedqGZ) was CANCELED; 438c941 is a HANDOFF-only commit |
+| vocal-arrangement-studio | dpl_6DEL1k9C | main @ 94783cc of repo `-prophetic-word-journal` ("Add Sydni mood tracker HTML"), source=redeploy | vocal-arrangement-studio.vercel.app | **Production serves a different repo's mood-tracker HTML, not the vocal app** (the real app only exists as previews). Needs owner decision |
+| dove-expressions-learning-hub | dpl_9R64y7e8 | main @ 0265bc5 | dove-expressions-learning-hub.vercel.app | == main HEAD |
+| dove-video-transcriber | dpl_5omDz8Fs | main @ da5c011 | dove-video-transcriber.vercel.app | |
+| dove-expressions-dashboard | dpl_ESKguBFF | main @ 511a48a | dove-expressions-dashboard.vercel.app | == main HEAD |
+| book-build | dpl_DUjMaVNF | main @ 3f0fdb8 | book-build-pi.vercel.app | == main HEAD |
+| dove-rehearsal-director | dpl_2fgSEWJZ | no git metadata (CLI/redeploy) | dove-rehearsal-director.vercel.app | cannot confirm it matches main (54029620) |
+| kids-dream-journal / -eeak | dpl_xyKbs82A / dpl_HkSfp4VY | main @ 6f5e2ba (both) | *.vercel.app | duplicate project pair |
+| prophetic-word-journal | dpl_4AfKrkaf | main @ 30f741c ("Add Sydni mood tracker HTML") | prophetic-word-journal.vercel.app | earlier prods were the real journal (dpl_5NXSrWt2 = rollback) |
+| mood-tracker | dpl_9HiMPfyQ | main @ 2634560 | mood-tracker-eta-five.vercel.app | |
+| spiritual-wiring-profile-generator | dpl_4W4rQoL2 | main @ ccf9ac5 | *.vercel.app | only deployment |
+| dreamjournaltemplategenerator / -fez9 | dpl_Cf4y4Kdj / dpl_79riU4Ar | main @ ebe8434 (both) | *.vercel.app | duplicate project pair |
+
+Only **app.doveexpressions.org** is a custom domain; every other URL is a *.vercel.app alias. Project git-branch aliases for deleted deployments were stale (404), so they are not a concern.
+
+### 4. Hearing God divergence (verified against git)
+- Current `main` has only 116 commits since 2026-09-02 (history re-rooted). The August production-era commits (8fc8f29, dc96b0a, 05dc10c, a8bea7e) are **not in main** but are preserved on old branches (`claude/hearing-god-edit-nav-bug-8gjzsr`, `agent/...`, `claude/offline-reading-and-uploaded-music`, etc.). `9e913ab` only lives on `claude/hearing-guide-tts-issues-hyt3z6` (268 commits not in main). `4925f53` (behind BLOCKED dpl_Ubbb2an1) is no longer reachable in git, but that deployment was BLOCKED and never built, so it holds no retrievable code.
+- All three production deployments on main (5d8aa6a, 68bf023, a1dee84) ARE ancestors of main today, so production and main currently match.
+- **Unmerged work that exists only as a Vercel preview build**: `claude/hearing-god-open-beta-4fzb9t` (ad3b64b, 1 commit, 20 files incl. `beta-signup-complete` function and an open-beta SQL migration) -> dpl_2MbE2g9V. No PR is open for it. KEEP until merged.
+- 12 open PRs (#57, #51, #49, #47, #43, #42, #40, #39, #38, #37 draft, #16, #2 draft); each has exactly one READY preview. KEEP all until the PR is merged or closed. PR #51's commit is patch-equivalent to something already in main (git cherry), so dpl_EKNRV2Vu is NEEDS REVIEW rather than KEEP.
+
+### 5. Product Studio vs Journal Color Studio (read-only check, build config untouched)
+Both projects build repo `journal-color-studio`. Of Product Studio's 7 deployments, 6 share a commit with a Journal Color Studio deployment (89f054b, 047aa23, d706cad, fe049b5 built READY in both; 438c941 and 62050cf READY in JCS but CANCELED in PS). Each push therefore produces about two deployments. Whether both are needed is an owner decision; no setting was changed.
+
+### 6. Classification (89 total: SAFE 31, NEEDS REVIEW 9, KEEP 49). Per-deployment size is not exposed, so recovery is NOT estimated.
+All URLs end `-sydni-doves-projects.vercel.app`. Order = proposed deletion order.
+
+**Tier 1 - failed / canceled / blocked (10), SAFE TO DELETE**
+| ID | URL prefix | Reason |
+|---|---|---|
+| dpl_88hijdST31e6mn4WTD3XkTjeuv6m | dove-product-studio-g3u2fmifv | CANCELED preview, superseded |
+| dpl_ExUedqGZNARKzcPCYPLLvmcJAXXu | dove-product-studio-qn43ssrlc | CANCELED, never served (HANDOFF-only commit) |
+| dpl_8f1S9VCmaFxgDGdXFusr39sHAdiW | book-build-o9ud50gui | ERROR, created by audit push |
+| dpl_Fofmmh4op9YU7Qp8cfssE5FP7wz5 | book-build-56wf92g8k | ERROR, created by audit push |
+| dpl_DsHLMKCj8oxDoedPcFrKAvYTwuQN | book-build-pp5ut5yp3 | ERROR on open PR #1 tip; deleting loses no code, but diagnose why the build fails first |
+| dpl_5SSAbsnozbxZQxTwaAehSQTMpRsG | dove-expressions-journal-g01fylxzk | BLOCKED, never built |
+| dpl_2pBbFh15BuLNSctSGaoKSv76gR8m | dove-expressions-journal-nryw9gt0e | BLOCKED, never built |
+| dpl_HtEKBTsgV8xCii3d5d4VUSq68Hco | dove-expressions-journal-ps882itkc | BLOCKED, never built |
+| dpl_5QNRTQMY4Nk8N5vPqCi6FtncknVt | dove-expressions-journal-4qeeyh403 | BLOCKED; source 9e913ab kept on branch |
+| dpl_Ubbb2an1FgsYLtoVgEYrT6iEi2qa | dove-expressions-journal-h5y7f5vx6 | BLOCKED; never built, no retrievable code |
+
+**Tier 2 - superseded previews on the same branch (8), SAFE TO DELETE**
+dpl_95ZfkLXTD2hePB8nj7wdyzzBmJ8j (journal-color-studio-3c9pri88u, older commit on phase8.1 branch); dpl_962BQcwmtiAd1x8NSHGXGvTQNShK (vocal-arrangement-studio-b60fpigyr); dpl_46DhDQWNpf9yVoy1pjLF9WLdk9Cx (vocal-arrangement-studio-8vaqpxskv); dpl_3ZsP5Hna8psENVA1EWx2hVwzQZu7 (dove-expressions-learning-fd81yb44r); dpl_C1FDaeMHXQThpKhVfDNhLECKbL1b (dove-expressions-learning-hy5zz770c); dpl_HFf2mxM4jU3RdvbcPm7n56E37JFA (dove-rehearsal-director-1d63466jm); dpl_D5BemGfDuwEs78S619u4Mf9mtqqF (dove-rehearsal-director-hw2jy3981); dpl_Fk8JhhoKJEnXLwWyrTNbyDxnwvXc (dove-expressions-dashboard-eqnnl5o3r). Each is an older commit of a branch whose newer tip is kept.
+
+**Tier 3 - superseded or duplicate production history, not rollback points (13), SAFE TO DELETE**
+dpl_jaY5CVpgmEt72oLCpfa5RaLPKWfV (Hearing God, a1dee84, in main, two newer prods kept); dpl_HpJgHWQcy9K2TZsjCinxpJneF9rj (journal-color-studio, Phase 8 merge, later prods same app code); dpl_7mXdj2cD6YNQ62JwAVJzjXAYREN7 and dpl_7tsmj4bLmWoERoZqfd4vYuFs2P8V (vocal, same commit 94783cc as serving deploy); dpl_2G9Am6iRFLFmcEXCwL3M4oeTWzcv (learning-hub); dpl_4eK8jzSDKc2Gq1YpUdGYC4au7g22 (video-transcriber); dpl_AKFGemBRVwe1CfX7bCn9SLkGB7y8 (dashboard); dpl_8FWX6CVGMSGPeUFbxsngFCrdWEgo (book-build); dpl_CkfzfopWj6zdLqDdsgEjPHuacfc5 and dpl_Dj5KWqpBJ6KLoPYJK2X4o3EANxNC (kids-dream-journal pair); dpl_EBNHSocndYpduYwjTdn9zaLdeom8 (mood-tracker, same commit as rollback); dpl_9PnDNsSVKbCs7qUGAJYHrgAmq2MT and dpl_ANeBujjNMjm49hXKXHJtf8BqEMov (dreamjournaltemplategenerator pair).
+
+**NEEDS REVIEW (9) - do not delete without an explicit decision**
+| ID | Why |
+|---|---|
+| dpl_EKNRV2VuqBaSeJ7BhKm4UezMFM93 (Hearing God, fix/hearing-god-audio-cache, PR #51 open) | commit is patch-equivalent to main; confirm PR #51 is obsolete |
+| dpl_7uGBmnshpPjbC37ALu5Wc83HsFR2 (product-studio) | last pre-Phase-8 production baseline |
+| dpl_G2W42FRXkuhxpf1oC4MDvCfac4WX (vocal) | preview of the misfiled mood-tracker commit |
+| dpl_214XnwPXYP4fXaYcNPJhn53Vv89D (dashboard) | tip of still-existing `fix/supabase-egress`; content appears shipped in prod via squash but not diff-verified |
+| dpl_4KcSThSkgUcKP6xNYzWnHf48Bf6i (rehearsal-director) | old prod, no git metadata |
+| dpl_8S9apKGLB1szYzw6GNcyeQmFbeDs (prophetic-word-journal) | older real-journal production, not rollback-flagged |
+| dpl_646398DYvF1dyBmf2ETMYajzhMnd, dpl_CVdnFjqm6x4XTJeLj9vs5EwknJuY, dpl_6m7mgYNkc8kVAvpP1wqDkRW1Dnw4 (prophetic-word-journal) | previews of old dashboard branch; repo `-prophetic-word-journal` was not inspected |
+
+**KEEP (49)** - every serving production deployment above; every `isRollbackCandidate` production (Hearing God dpl_8agzhAd6, JCS dpl_GjpXgURi, Product Studio dpl_J5xabWw8, learning-hub dpl_3d5yKSuV, dashboard dpl_AzhJfQV9, book-build dpl_HJHRmDnT, rehearsal dpl_8jaBZ6WH, video-transcriber dpl_7jJWHS9S, kids pair dpl_2UhB8YtG / dpl_A7Bpg9Mg, prophetic dpl_5NXSrWt2, mood dpl_DZB2j77T, dream pair dpl_2M5RLDQe / dpl_Bfx3vi3M); and the active tip previews: Hearing God 12 open-PR previews + open-beta dpl_2MbE2g9V, JCS dpl_HmX33UcA and dpl_CFtsyo56, Product Studio dpl_DcSeyzV4 and dpl_27KzmiMj, vocal dpl_HDhYx1GH, learning-hub dpl_9k6sMHhG, rehearsal dpl_4xa23nkv (PR #2).
+
+### 7. Will cleanup reduce the 100%?
+- The only meter at/over its limit is Deployment Storage, which is what deleting deployments targets. Build cache, Functions Storage, Blob and artifacts are not the cause.
+- Only about 0.08 GB must be freed to get under 100%. Whether the 31 SAFE deletions achieve that **cannot be measured**: failed/canceled/blocked builds may hold little or nothing. Delete tier by tier and recheck the Usage page after each tier.
+- **Unverified:** Vercel documents a 30-day recovery period before a deleted deployment is permanently cleaned up. Whether the storage meter drops immediately or after that period was not confirmed; recheck Usage after the first tier to learn this.
+- Project-level removal (duplicate projects) would likely free the most space but is not part of this plan.
+
+### 8. Authorization limitations
+- The Vercel MCP exposes no delete-deployment tool. Deletion path once approved: `vercel remove <url>` (supports multiple URLs; `--safe` skips deployments with an active preview URL or production domain) or `DELETE /v13/deployments/{id}`, or the dashboard.
+- No dashboard access from the audit session; storage figures come from the user's screenshots.
+- Repos read this session: dove-expressions-journal-app, book-build (in scope); dove-expressions-dashboard, rehearsal-director, vocal-arrangement-studio (attached read-scope during this audit); journal-color-studio and dove-expressions-learning-hub (public, git branch lists only, PR status not readable); `-prophetic-word-journal` not inspected.
+
+### 9. Recommended retention policy (not applied)
+1. Production: keep the serving deployment + the 2 most recent rollback points per project; never touch anything behind app.doveexpressions.org.
+2. Previews: keep only the newest preview per open-PR/active branch; delete superseded commits after each push or merge. Re-check Hearing God against `git branch --no-merged main` before removing any preview.
+3. Failed/canceled/blocked: delete after diagnosis, within about a week.
+4. Duplicate builds: decide if Product Studio and Journal Color Studio (and the kids-dream-journal and dreamjournaltemplategenerator pairs) both need to exist; consolidate or add an Ignored Build Step so docs-only commits (HANDOFF) and non-PR branches do not build.
+5. Per-project Deployment Retention (project settings; `vercel list --policy` shows it) can expire preview/errored/canceled deployments automatically; exact default periods and plan availability were not verified, so confirm in the dashboard before relying on it.
+6. Pro plan is not required just because of this stock overage; revisit only if usage returns to the limit after cleanup and the retention policy.
+
+### 10. Approval status
+PENDING. Awaiting the user's explicit approval of Tier 1 / Tier 2 / Tier 3 (or edits), and decisions on the 9 NEEDS REVIEW items, the duplicate project pairs, and the vocal-arrangement-studio production source.
