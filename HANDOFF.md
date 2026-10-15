@@ -102,3 +102,30 @@ Report anything that breaks, reads awkwardly, or produces a bad AI response (too
 - **AI route pattern**: a route handler calls `createServerSupabase()`, checks `auth.getUser()`, gathers context (`gatherSectionContext` or `gatherChapterPlanningContext`), builds a prompt (`src/lib/ai/prompts/*.ts`), calls `callOpenAIText` (plain Socratic turn) or `callOpenAIStructured` (schema-backed JSON), then persists. Never call the OpenAI SDK directly from a route — always through `src/lib/ai/client.ts`.
 - **`MASTER_AI_RULES`** (`src/lib/ai/masterRules.ts`) is injected into every AI call — it's the one place the "AI doesn't take creative control, doesn't invent facts, distinguishes manuscript fact / author canon / AI inference" philosophy lives. Any new AI feature should build its system prompt as `` `${MASTER_AI_RULES}\n\nTASK: ...` ``, same as every existing prompt module.
 - **Migrations are additive and numbered.** Never edit an already-applied migration file after the fact — write a new one. Migrations 0001, 0002, and 0004 are applied; 0003 is not (see above).
+
+---
+
+## Vercel storage audit (2026-10-15) — READ-ONLY, nothing deleted
+
+Scope: Vercel team `sydni-doves-projects` (Hobby plan, 16 projects). Audit only; no deployments, branches, env vars, domains or Supabase projects were changed.
+
+**What 100% means is NOT yet confirmed.** The Vercel tools available to the audit session cannot read the Usage page, and the billing-charges API returns `costs_not_found` on Hobby. The user must open Vercel -> Settings -> Usage and note which meter is at 100% (Blob storage, build/fast data transfer, edge requests, function invocations, source/build minutes, etc.). Hobby does not meter "deployment storage" as such, so deleting deployments may not move the number.
+
+**Deletion is not available through the Vercel MCP** (no delete-deployment tool). Approved deletions must be done with the Vercel CLI (`vercel remove <url>`) or the dashboard.
+
+Deployments seen (87; listing appears incomplete — the alias list references dozens of deployment IDs for journal-color-studio, dove-product-studio and the journal app that the deployment listing does not return, so they may already be expired or the listing is capped):
+
+| Project | Seen | Notes |
+|---|---|---|
+| dove-expressions-journal-app (Hearing God, app.doveexpressions.org) | 21 | Prod from `main`: dpl_EaUzoRp4 (#56, current), dpl_8agzhAd6 (#54), dpl_jaY5CVpg. 5 BLOCKED (never served). 13 branch previews. Newest preview is `claude/hearing-god-open-beta-4fzb9t`, not on main. |
+| journal-color-studio | 6 | Prod dpl_5pnJ1oDy. 3 active Phase 8.1 previews. |
+| dove-product-studio | 7 | Prod dpl_8dqUK2Lt. 2 CANCELED. Builds from the journal-color-studio repo. |
+| vocal-arrangement-studio | 7 | Prod is serving the mood-tracker/`-prophetic-word-journal` commit (misattributed — needs review). |
+| learning-hub 6, dashboard 5, rehearsal-director 6, prophetic-word-journal 6, book-build 4, video-transcriber 3, kids-dream-journal 3 + eeak 3, mood-tracker 3, dreamjournaltemplategenerator 3 + fez9 3, spiritual-wiring 1 | | mostly production history; no failed except book-build 1 ERROR |
+
+Proposed categories (PROPOSAL — awaiting user approval, none executed):
+- SAFE TO DELETE: dpl_88hijdST, dpl_ExUedqGZ (CANCELED, product-studio); dpl_DsHLMKCj (ERROR, book-build); BLOCKED journal-app deployments dpl_5SSAbsno, dpl_2pBbFh15, dpl_HtEKBTsg, dpl_5QNRTQMY, dpl_Ubbb2an1; duplicate dreamjournaltemplategenerator / -fez9 pairs of the same commit only if one project is retired (user decision).
+- KEEP: every current production deployment and anything behind a custom domain (app.doveexpressions.org), `isRollbackCandidate: true` deployments, all previews on branches with open PRs/active work.
+- NEEDS REVIEW: all journal-app branch previews (check each branch is merged on GitHub first — the open-beta features are not on main), vocal-arrangement-studio production source, duplicate project pairs.
+
+Estimated recovery: not measurable with the available tools (per-deployment size is not exposed). Next steps: user confirms the 100% meter, then approves a list.
